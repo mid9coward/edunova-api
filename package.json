@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "npx nodemon",
+    "vercel-build": "npm run build",
     "build": "rimraf ./dist && tsc && tsc-alias",
     "start": "node dist/index.js",
     "lint": "eslint .",
@@ -37,10 +38,7 @@
     "globals": "^16.3.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
-    "tsc-alias": "^1.8.16",
     "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0"
   },
   "dependencies": {
@@ -61,7 +59,10 @@
     "mongoose": "^8.16.4",
     "nodemailer": "^7.0.6",
     "puppeteer": "^24.24.0",
+    "rimraf": "^6.0.1",
     "stripe": "^18.5.0",
+    "tsc-alias": "^1.8.16",
+    "typescript": "^5.8.3",
     "uuid": "^11.1.0",
     "zod": "^4.0.8"
   }
