@@ -61,7 +61,7 @@ export class OrderController {
    */
   static async getOrderById(req: Request, res: Response): Promise<void> {
     const { id } = req.params
-    const order = await OrderService.getOrderById(id)
+    const order = await OrderService.getOrderById(id as string)
 
     sendSuccess.ok(res, 'Order retrieved successfully', order)
   }
@@ -71,7 +71,7 @@ export class OrderController {
    */
   static async getOrderByCode(req: Request, res: Response): Promise<void> {
     const { code } = req.params
-    const order = await OrderService.getOrderByCode(code)
+    const order = await OrderService.getOrderByCode(code as string)
 
     sendSuccess.ok(res, 'Order retrieved successfully', { order })
   }
@@ -83,7 +83,7 @@ export class OrderController {
     const { id } = req.params
     const statusData: UpdateOrderStatusInput = req.body
 
-    const order = await OrderService.updateOrderStatus(id, statusData)
+    const order = await OrderService.updateOrderStatus(id as string, statusData)
     sendSuccess.ok(res, 'Order status updated successfully', { order })
   }
 
@@ -101,7 +101,7 @@ export class OrderController {
 
     // Admin can cancel any order, user can only cancel their own
     const isAdmin = userRoles?.includes('admin')
-    const order = await OrderService.cancelOrder(id, isAdmin ? undefined : userId)
+    const order = await OrderService.cancelOrder(id as string, isAdmin ? undefined : userId)
     sendSuccess.ok(res, 'Order canceled successfully', { order })
   }
 
@@ -110,7 +110,7 @@ export class OrderController {
    */
   static async deleteOrder(req: Request, res: Response): Promise<void> {
     const { id } = req.params
-    await OrderService.deleteOrder(id)
+    await OrderService.deleteOrder(id as string)
     sendSuccess.ok(res, 'Order deleted successfully')
   }
 
@@ -135,7 +135,7 @@ export class OrderController {
     }
 
     // Get order with user details and check access permissions
-    const { order, user } = await OrderService.getOrderForInvoice(id, userId)
+    const { order, user } = await OrderService.getOrderForInvoice(id as string, userId)
 
     // Generate PDF
     const companyInfo = PDFService.getDefaultCompanyInfo()

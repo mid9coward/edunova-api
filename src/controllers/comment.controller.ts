@@ -39,7 +39,7 @@ export class CommentController {
   static async getCommentById(req: Request, res: Response): Promise<void> {
     const { id } = req.params
 
-    const comment = await CommentService.getCommentById(id)
+    const comment = await CommentService.getCommentById(id as string)
 
     sendSuccess.ok(res, 'Comment retrieved successfully', { comment })
   }
@@ -51,7 +51,7 @@ export class CommentController {
     const { lessonId } = req.params
     const query = req.query as unknown as GetLessonCommentsQuery
 
-    const result = await CommentService.getLessonComments(lessonId, query)
+    const result = await CommentService.getLessonComments(lessonId as string, query)
 
     sendSuccess.ok(res, 'Lesson comments retrieved successfully', result)
   }
@@ -63,7 +63,7 @@ export class CommentController {
     const { userId } = req.params
     const query = req.query as unknown as GetUserCommentsQuery
 
-    const result = await CommentService.getUserComments(userId, query)
+    const result = await CommentService.getUserComments(userId as string, query)
 
     sendSuccess.ok(res, 'User comments retrieved successfully', result)
   }
@@ -109,7 +109,7 @@ export class CommentController {
 
     const updateData: UpdateCommentInput = req.body
 
-    const comment = await CommentService.updateComment(id, userId, updateData)
+    const comment = await CommentService.updateComment(id as string, userId, updateData)
 
     sendSuccess.ok(res, 'Comment updated successfully', comment)
   }
@@ -127,7 +127,7 @@ export class CommentController {
 
     const { deleteReplies } = req.query
 
-    await CommentService.deleteComment(id, userId, deleteReplies === 'true')
+    await CommentService.deleteComment(id as string, userId, deleteReplies === 'true')
 
     const message =
       deleteReplies === 'true' ? 'Comment and replies deleted successfully' : 'Comment deleted successfully'
@@ -142,7 +142,7 @@ export class CommentController {
     const { commentId } = req.params
     const query = req.query as unknown as GetCommentRepliesQuery
 
-    const result = await CommentService.getCommentReplies(commentId, query)
+    const result = await CommentService.getCommentReplies(commentId as string, query)
 
     sendSuccess.ok(res, 'Comment replies retrieved successfully', result)
   }
@@ -160,7 +160,7 @@ export class CommentController {
 
     const reactionData: AddReactionInput = req.body
 
-    const comment = await CommentService.toggleReaction(id, userId, reactionData)
+    const comment = await CommentService.toggleReaction(id as string, userId, reactionData)
 
     sendSuccess.ok(res, 'Reaction toggled successfully', comment)
   }
@@ -178,7 +178,7 @@ export class CommentController {
 
     const reactionData: RemoveReactionInput = req.body
 
-    const comment = await CommentService.removeReaction(id, userId, reactionData)
+    const comment = await CommentService.removeReaction(id as string, userId, reactionData)
 
     sendSuccess.ok(res, 'Reaction removed successfully', { comment })
   }
@@ -190,7 +190,7 @@ export class CommentController {
     const { id } = req.params
     const { status } = req.body
 
-    const comment = await CommentService.updateCommentStatus(id, status)
+    const comment = await CommentService.updateCommentStatus(id as string, status)
 
     sendSuccess.ok(res, `Comment ${status} successfully`, comment)
   }
@@ -202,7 +202,7 @@ export class CommentController {
     const { id } = req.params
     const query = req.query as unknown as GetCommentReactionsQuery
 
-    const result = await CommentService.getCommentReactions(id, query)
+    const result = await CommentService.getCommentReactions(id as string, query)
 
     sendSuccess.ok(res, 'Comment reactions retrieved successfully', result)
   }

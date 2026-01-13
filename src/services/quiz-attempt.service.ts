@@ -200,7 +200,7 @@ export class QuizAttemptService {
 
     // Get all questions for this quiz but exclude correctAnswers for security
     const questions = await QuizQuestion.find({ quizId }).select('-correctAnswers').lean()
-    return questions
+    return questions as unknown as IQuizQuestion[]
   }
 
   /**
@@ -573,7 +573,7 @@ export class QuizAttemptService {
       duration: durationSeconds,
       isPassed,
       wasAutoCompleted,
-      questions
+      questions: questions as unknown as IQuizQuestion[]
     }
 
     // Add time-related info if quiz is still in progress

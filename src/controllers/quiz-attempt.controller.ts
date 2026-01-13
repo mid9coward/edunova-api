@@ -18,7 +18,7 @@ export class QuizAttemptController {
     }
 
     const { quizId } = req.params
-    const result = await QuizAttemptService.checkQuizAttemptStatus(userId, quizId)
+    const result = await QuizAttemptService.checkQuizAttemptStatus(userId, quizId as string)
 
     sendSuccess.ok(res, 'Quiz continuity check completed', result)
   }
@@ -47,7 +47,7 @@ export class QuizAttemptController {
     }
 
     const { quizId } = req.params
-    const questions = await QuizAttemptService.getQuizQuestions(quizId, userId)
+    const questions = await QuizAttemptService.getQuizQuestions(quizId as string, userId)
 
     sendSuccess.ok(res, 'Quiz questions retrieved successfully', questions)
   }
@@ -62,7 +62,7 @@ export class QuizAttemptController {
     }
 
     const { attemptId } = req.params
-    const attempt = await QuizAttemptService.submitAnswer(attemptId, req.body, userId)
+    const attempt = await QuizAttemptService.submitAnswer(attemptId as string, req.body, userId)
 
     sendSuccess.ok(res, 'Answer submitted successfully', attempt)
   }
@@ -77,7 +77,7 @@ export class QuizAttemptController {
     }
 
     const { attemptId } = req.params
-    const attempt = await QuizAttemptService.completeQuizAttempt(attemptId, req.body, userId)
+    const attempt = await QuizAttemptService.completeQuizAttempt(attemptId as string, req.body, userId)
 
     sendSuccess.ok(res, 'Quiz attempt completed successfully', attempt)
   }
@@ -109,7 +109,7 @@ export class QuizAttemptController {
     }
 
     const { attemptId } = req.params
-    const result = await QuizAttemptService.getQuizAttemptById(attemptId, userId)
+    const result = await QuizAttemptService.getQuizAttemptById(attemptId as string, userId)
 
     sendSuccess.ok(res, 'Quiz attempt retrieved successfully', {
       ...result.attempt.toObject(),
@@ -130,7 +130,7 @@ export class QuizAttemptController {
     }
 
     const { attemptId } = req.params
-    await QuizAttemptService.deleteQuizAttempt(attemptId, userId)
+    await QuizAttemptService.deleteQuizAttempt(attemptId as string, userId)
 
     sendSuccess.ok(res, 'Quiz attempt deleted successfully')
   }

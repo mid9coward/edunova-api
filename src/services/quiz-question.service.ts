@@ -90,7 +90,7 @@ export class QuizQuestionService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      questions: questions as IQuizQuestion[],
+      questions: questions as unknown as IQuizQuestion[],
       pagination: {
         total,
         page: pageNum,

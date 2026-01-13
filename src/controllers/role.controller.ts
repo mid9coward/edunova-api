@@ -28,7 +28,7 @@ export class RoleController {
     const { roleId } = req.params
     const { includeInheritance = false } = req.query
 
-    const role = await RoleController.roleService.getRoleById(roleId, includeInheritance === 'true')
+    const role = await RoleController.roleService.getRoleById(roleId as string, includeInheritance === 'true')
 
     sendSuccess.ok(res, 'Role retrieved successfully', role)
   }
@@ -55,7 +55,7 @@ export class RoleController {
     const { roleId } = req.params
     const updateData = req.body
 
-    const role = await RoleController.roleService.updateRole(roleId, updateData)
+    const role = await RoleController.roleService.updateRole(roleId as string, updateData)
 
     sendSuccess.ok(res, 'Role updated successfully', role)
   }
@@ -66,7 +66,7 @@ export class RoleController {
   static async deleteRole(req: Request, res: Response): Promise<void> {
     const { roleId } = req.params
 
-    await RoleController.roleService.deleteRole(roleId)
+    await RoleController.roleService.deleteRole(roleId as string)
 
     sendSuccess.ok(res, 'Role deleted successfully')
   }
@@ -85,7 +85,7 @@ export class RoleController {
       return sendSuccess.ok(res, 'Access denied: You can only view your own permissions', [])
     }
 
-    const permissions = await RoleController.roleService.getUserPermissions(userId)
+    const permissions = await RoleController.roleService.getUserPermissions(userId as string)
 
     sendSuccess.ok(res, 'User permissions retrieved successfully', { permissions })
   }
@@ -96,7 +96,7 @@ export class RoleController {
   static async getRolePermissions(req: Request, res: Response): Promise<void> {
     const { roleId } = req.params
 
-    const permissions = await RoleController.roleService.getAllPermissions(roleId)
+    const permissions = await RoleController.roleService.getAllPermissions(roleId as string)
 
     sendSuccess.ok(res, 'Role permissions retrieved successfully', { permissions })
   }

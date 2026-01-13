@@ -103,7 +103,7 @@ export class CouponService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      coupons: coupons as ICoupon[],
+      coupons: coupons as unknown as ICoupon[],
       total,
       page: pageNum,
       limit: limitNum,

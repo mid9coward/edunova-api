@@ -47,7 +47,7 @@ export class CartController {
       throw new ValidationError('User ID is required')
     }
 
-    const cart = await CartService.removeFromCart(userId, courseId)
+    const cart = await CartService.removeFromCart(userId, courseId as string)
 
     sendSuccess.ok(res, 'Item removed from cart successfully', { cart })
   }

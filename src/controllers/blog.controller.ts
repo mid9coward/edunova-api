@@ -55,7 +55,7 @@ export class BlogController {
    */
   static async getBlogById(req: Request, res: Response): Promise<void> {
     const { blogId } = req.params
-    const blog = await BlogService.getBlogById(blogId)
+    const blog = await BlogService.getBlogById(blogId as string)
 
     sendSuccess.ok(res, 'Blog fetched successfully', { blog })
   }
@@ -65,7 +65,7 @@ export class BlogController {
    */
   static async getBlogBySlug(req: Request, res: Response): Promise<void> {
     const { slug } = req.params
-    const blog = await BlogService.getBlogBySlug(slug)
+    const blog = await BlogService.getBlogBySlug(slug as string)
 
     sendSuccess.ok(res, 'Blog fetched successfully', { blog })
   }
@@ -78,7 +78,7 @@ export class BlogController {
     const updateData: UpdateBlogInput = req.body
     const isAdmin = req.user!.roles?.includes('admin') || false
     const authorId = isAdmin ? undefined : req.user!.userId
-    const blog = await BlogService.updateBlog(blogId, updateData, authorId)
+    const blog = await BlogService.updateBlog(blogId as string, updateData, authorId)
 
     sendSuccess.ok(res, 'Blog updated successfully', { blog })
   }
@@ -90,7 +90,7 @@ export class BlogController {
     const { blogId } = req.params
     const isAdmin = req.user!.roles?.includes('admin') || false
     const authorId = isAdmin ? undefined : req.user!.userId
-    await BlogService.deleteBlog(blogId, authorId)
+    await BlogService.deleteBlog(blogId as string, authorId)
 
     sendSuccess.ok(res, 'Blog deleted successfully')
   }

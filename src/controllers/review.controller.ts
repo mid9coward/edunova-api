@@ -39,7 +39,7 @@ export class ReviewController {
   static async getReviewById(req: Request, res: Response): Promise<void> {
     const { id } = req.params
 
-    const review = await ReviewService.getReviewById(id)
+    const review = await ReviewService.getReviewById(id as string)
 
     sendSuccess.ok(res, 'Review retrieved successfully', { review })
   }
@@ -52,7 +52,7 @@ export class ReviewController {
     const userId = req.user!.userId
     const updateData: UpdateReviewInput = req.body
 
-    const review = await ReviewService.updateReview(id, userId, updateData)
+    const review = await ReviewService.updateReview(id as string, userId, updateData)
 
     sendSuccess.ok(res, 'Review updated successfully', { review })
   }
@@ -64,7 +64,7 @@ export class ReviewController {
     const { id } = req.params
     const userId = req.user!.userId
 
-    await ReviewService.deleteReview(id, userId)
+    await ReviewService.deleteReview(id as string, userId)
 
     sendSuccess.ok(res, 'Review deleted successfully')
   }
@@ -76,7 +76,7 @@ export class ReviewController {
     const { courseId } = req.params
     const query = req.query as unknown as GetCourseReviewsQuery
 
-    const result = await ReviewService.getCourseReviews(courseId, query)
+    const result = await ReviewService.getCourseReviews(courseId as string, query)
 
     sendSuccess.ok(res, 'Course reviews retrieved successfully', result)
   }
@@ -88,7 +88,7 @@ export class ReviewController {
     const { userId } = req.params
     const query = req.query as unknown as GetUserReviewsQuery
 
-    const result = await ReviewService.getUserReviews(userId, query)
+    const result = await ReviewService.getUserReviews(userId as string, query)
 
     sendSuccess.ok(res, 'User reviews retrieved successfully', result)
   }
@@ -99,7 +99,7 @@ export class ReviewController {
   static async getCourseRatingStats(req: Request, res: Response): Promise<void> {
     const { courseId } = req.params
 
-    const stats = await ReviewService.getCourseRatingStats(courseId)
+    const stats = await ReviewService.getCourseRatingStats(courseId as string)
 
     sendSuccess.ok(res, 'Course rating statistics retrieved successfully', stats)
   }
@@ -111,7 +111,7 @@ export class ReviewController {
     const { id } = req.params
     const { status } = req.body
 
-    const review = await ReviewService.updateReviewStatus(id, status)
+    const review = await ReviewService.updateReviewStatus(id as string, status)
 
     sendSuccess.ok(res, 'Review status updated successfully', { review })
   }

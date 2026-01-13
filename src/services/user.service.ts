@@ -106,7 +106,7 @@ export class UserService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      users: users as IUser[],
+      users: users as unknown as IUser[],
       pagination: {
         total,
         page: pageNum,

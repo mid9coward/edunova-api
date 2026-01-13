@@ -17,7 +17,7 @@ export class UserController {
    * Get user by ID
    */
   static async getUserById(req: Request, res: Response) {
-    const result = await UserService.getUserById(req.params.userId)
+    const result = await UserService.getUserById(req.params.userId as string)
 
     sendSuccess.ok(res, 'User retrieved successfully', result)
   }
@@ -26,7 +26,7 @@ export class UserController {
    * Update user (admin-level updates)
    */
   static async updateUser(req: Request, res: Response) {
-    const result = await UserService.updateUser(req.params.userId, req.body)
+    const result = await UserService.updateUser(req.params.userId as string, req.body)
 
     sendSuccess.ok(res, 'User updated successfully', result)
   }
@@ -35,7 +35,7 @@ export class UserController {
    * Delete user (soft delete)
    */
   static async deleteUser(req: Request, res: Response) {
-    await UserService.deleteUser(req.params.userId)
+    await UserService.deleteUser(req.params.userId as string)
 
     sendSuccess.ok(res, 'User deleted successfully')
   }

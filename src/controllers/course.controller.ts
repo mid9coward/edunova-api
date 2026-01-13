@@ -58,11 +58,11 @@ export class CourseController {
     const canViewUnpublished =
       req.userPermissions?.includes('course:update') || req.userPermissions?.includes('admin:access')
 
-    const course = await CourseService.getCourseById(courseId, canViewUnpublished)
+    const course = await CourseService.getCourseById(courseId as string, canViewUnpublished)
 
     // Increment view count for published courses only
     if (course.status === CourseStatus.PUBLISHED) {
-      CourseService.incrementView(courseId)
+      CourseService.incrementView(courseId as string)
     }
 
     sendSuccess.ok(res, 'Course retrieved successfully', { course })
@@ -74,7 +74,7 @@ export class CourseController {
   static async getCourseBySlug(req: Request, res: Response): Promise<void> {
     const { slug } = req.params
 
-    const course = await CourseService.getCourseBySlug(slug)
+    const course = await CourseService.getCourseBySlug(slug as string)
 
     // Increment view count for published courses only
     if (course.status === CourseStatus.PUBLISHED) {
@@ -89,7 +89,7 @@ export class CourseController {
    */
   static async updateCourse(req: Request, res: Response): Promise<void> {
     const { courseId } = req.params
-    const course = await CourseService.updateCourse(courseId, req.body)
+    const course = await CourseService.updateCourse(courseId as string, req.body)
     sendSuccess.ok(res, 'Course updated successfully', { course })
   }
 
@@ -98,7 +98,7 @@ export class CourseController {
    */
   static async deleteCourse(req: Request, res: Response): Promise<void> {
     const { courseId } = req.params
-    await CourseService.deleteCourse(courseId)
+    await CourseService.deleteCourse(courseId as string)
     sendSuccess.ok(res, 'Course deleted successfully')
   }
 
@@ -199,7 +199,7 @@ export class CourseController {
   static async enrollInCourse(req: Request, res: Response): Promise<void> {
     const { courseId } = req.params
 
-    await CourseService.incrementSold(courseId)
+    await CourseService.incrementSold(courseId as string)
     sendSuccess.ok(res, 'Successfully enrolled in course')
   }
 
@@ -214,7 +214,7 @@ export class CourseController {
       throw new AuthenticationError('User authentication required', ErrorCodes.INVALID_CREDENTIALS)
     }
 
-    await CourseService.enrollInFreeCourse(courseId, userId)
+    await CourseService.enrollInFreeCourse(courseId as string, userId)
     sendSuccess.ok(res, 'Successfully enrolled in free course')
   }
 
@@ -225,7 +225,7 @@ export class CourseController {
     const { courseId } = req.params
     const limit = parseInt(req.query.limit as string) || 5
 
-    const result = await CourseService.getRelatedCourses(courseId, limit)
+    const result = await CourseService.getRelatedCourses(courseId as string, limit)
     sendSuccess.ok(res, 'Related courses retrieved successfully', result)
   }
 }

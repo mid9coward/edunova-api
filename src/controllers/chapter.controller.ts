@@ -32,7 +32,7 @@ export class ChapterController {
   static async getChapterById(req: Request, res: Response): Promise<void> {
     const { id } = req.params
 
-    const chapter = await ChapterService.getChapterById(id)
+    const chapter = await ChapterService.getChapterById(id as string)
 
     sendSuccess.ok(res, 'Chapter retrieved successfully', { chapter })
   }
@@ -44,7 +44,7 @@ export class ChapterController {
     const { id } = req.params
     const updateData: UpdateChapterInput = req.body
 
-    const chapter = await ChapterService.updateChapter(id, updateData)
+    const chapter = await ChapterService.updateChapter(id as string, updateData)
 
     sendSuccess.ok(res, 'Chapter updated successfully', { chapter })
   }
@@ -55,7 +55,7 @@ export class ChapterController {
   static async deleteChapter(req: Request, res: Response): Promise<void> {
     const { id } = req.params
 
-    await ChapterService.deleteChapter(id)
+    await ChapterService.deleteChapter(id as string)
 
     sendSuccess.ok(res, 'Chapter deleted successfully')
   }
@@ -66,7 +66,7 @@ export class ChapterController {
   static async getCourseChapters(req: Request, res: Response): Promise<void> {
     const { courseId } = req.params
 
-    const chapters = await ChapterService.getPublicChaptersForCourse(courseId)
+    const chapters = await ChapterService.getPublicChaptersForCourse(courseId as string)
 
     sendSuccess.ok(res, 'Course chapters retrieved successfully', { chapters })
   }
@@ -88,7 +88,7 @@ export class ChapterController {
   static async addLessonToChapter(req: Request, res: Response): Promise<void> {
     const { chapterId, lessonId } = req.params
 
-    const chapter = await ChapterService.addLessonToChapter(chapterId, lessonId)
+    const chapter = await ChapterService.addLessonToChapter(chapterId as string, lessonId as string)
 
     sendSuccess.ok(res, 'Lesson added to chapter successfully', { chapter })
   }
@@ -99,7 +99,7 @@ export class ChapterController {
   static async removeLessonFromChapter(req: Request, res: Response): Promise<void> {
     const { chapterId, lessonId } = req.params
 
-    const chapter = await ChapterService.removeLessonFromChapter(chapterId, lessonId)
+    const chapter = await ChapterService.removeLessonFromChapter(chapterId as string, lessonId as string)
 
     sendSuccess.ok(res, 'Lesson removed from chapter successfully', { chapter })
   }

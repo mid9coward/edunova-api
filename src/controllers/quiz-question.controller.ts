@@ -40,7 +40,7 @@ export class QuizQuestionController {
   static async getQuestionsByQuiz(req: Request, res: Response): Promise<void> {
     const { quizId } = req.params
     const query: Partial<GetQuestionsByQuizQuery> = req.query
-    const result = await QuizQuestionService.getQuestionsByQuiz(quizId, query)
+    const result = await QuizQuestionService.getQuestionsByQuiz(quizId as string, query)
 
     sendSuccess.ok(res, 'Quiz questions fetched successfully', result)
   }
@@ -50,7 +50,7 @@ export class QuizQuestionController {
    */
   static async getAllQuestionsByQuiz(req: Request, res: Response): Promise<void> {
     const { quizId } = req.params
-    const questions = await QuizQuestionService.getAllQuestionsByQuiz(quizId)
+    const questions = await QuizQuestionService.getAllQuestionsByQuiz(quizId as string)
 
     sendSuccess.ok(res, 'Quiz questions fetched successfully', { questions })
   }
@@ -60,7 +60,7 @@ export class QuizQuestionController {
    */
   static async getQuizQuestionById(req: Request, res: Response): Promise<void> {
     const { id } = req.params
-    const question = await QuizQuestionService.getQuizQuestionById(id)
+    const question = await QuizQuestionService.getQuizQuestionById(id as string)
 
     sendSuccess.ok(res, 'Quiz question fetched successfully', { question })
   }
@@ -71,7 +71,7 @@ export class QuizQuestionController {
   static async updateQuizQuestion(req: Request, res: Response): Promise<void> {
     const { id } = req.params
     const updateData: UpdateQuizQuestionInput = req.body
-    const question = await QuizQuestionService.updateQuizQuestion(id, updateData)
+    const question = await QuizQuestionService.updateQuizQuestion(id as string, updateData)
 
     sendSuccess.ok(res, 'Quiz question updated successfully', { question })
   }
@@ -81,7 +81,7 @@ export class QuizQuestionController {
    */
   static async deleteQuizQuestion(req: Request, res: Response): Promise<void> {
     const { id } = req.params
-    await QuizQuestionService.deleteQuizQuestion(id)
+    await QuizQuestionService.deleteQuizQuestion(id as string)
 
     sendSuccess.ok(res, 'Quiz question deleted successfully')
   }

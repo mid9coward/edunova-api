@@ -88,7 +88,7 @@ export class TrackController {
     }
 
     const { trackId } = req.params
-    const track = await TrackService.getTrackById(trackId, userId)
+    const track = await TrackService.getTrackById(trackId as string, userId)
 
     sendSuccess.ok(res, 'Track retrieved successfully', { track })
   }
@@ -103,7 +103,7 @@ export class TrackController {
     }
 
     const { trackId } = req.params
-    await TrackService.deleteTrack(trackId, userId)
+    await TrackService.deleteTrack(trackId as string, userId)
 
     sendSuccess.ok(res, 'Track deleted successfully')
   }

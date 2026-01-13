@@ -5,7 +5,6 @@ import { Chapter } from '../models/chapter'
 import { Course } from '../models/course'
 import { ValidationError, NotFoundError, DatabaseError, ErrorCodes } from '../utils/errors'
 import { CreateLessonInput, UpdateLessonInput, ReorderLessonsInput } from '../schemas/lesson.schema'
-import { console } from 'inspector'
 
 /**
  * Lesson Service with unified CRUD operations
@@ -251,11 +250,11 @@ export class LessonService {
 
     switch (lessonData.contentType) {
       case 'video': {
-        resource = await Video.findById(lessonData.resourceId).lean()
+        resource = (await Video.findById(lessonData.resourceId).lean()) as unknown as IVideo
         break
       }
       case 'article': {
-        resource = await Article.findById(lessonData.resourceId).lean()
+        resource = (await Article.findById(lessonData.resourceId).lean()) as unknown as IArticle
         break
       }
       case 'quiz': {
@@ -278,7 +277,7 @@ export class LessonService {
             ...quizResource,
             totalQuestions,
             ...(questions && { questions })
-          } as IQuizWithQuestions
+          } as unknown as IQuizWithQuestions
         }
         break
       }
@@ -489,15 +488,18 @@ export class LessonService {
     switch (contentType) {
       case 'video': {
         const query = Video.findById(resourceId)
-        return selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        return result as unknown as IVideo
       }
       case 'article': {
         const query = Article.findById(resourceId)
-        return selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        return result as unknown as IArticle
       }
       case 'quiz': {
         const query = Quiz.findById(resourceId)
-        return selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        return result as unknown as IQuiz
       }
       default:
         throw new ValidationError('Invalid content type', ErrorCodes.INVALID_INPUT_FORMAT)

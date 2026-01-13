@@ -48,7 +48,7 @@ export class CategoryController {
    */
   static async getCategoryById(req: Request, res: Response): Promise<void> {
     const { categoryId } = req.params
-    const category = await CategoryService.getCategoryById(categoryId)
+    const category = await CategoryService.getCategoryById(categoryId as string)
 
     sendSuccess.ok(res, 'Category fetched successfully', { category })
   }
@@ -59,7 +59,7 @@ export class CategoryController {
   static async updateCategory(req: Request, res: Response): Promise<void> {
     const { categoryId } = req.params
     const updateData: UpdateCategoryInput = req.body
-    const category = await CategoryService.updateCategory(categoryId, updateData)
+    const category = await CategoryService.updateCategory(categoryId as string, updateData)
 
     sendSuccess.ok(res, 'Category updated successfully', { category })
   }
@@ -69,7 +69,7 @@ export class CategoryController {
    */
   static async deleteCategory(req: Request, res: Response): Promise<void> {
     const { categoryId } = req.params
-    await CategoryService.deleteCategory(categoryId)
+    await CategoryService.deleteCategory(categoryId as string)
 
     sendSuccess.ok(res, 'Category deleted successfully')
   }

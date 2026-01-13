@@ -258,7 +258,7 @@ export class ChapterService {
     }))
 
     // Execute bulk write operation
-    await Chapter.bulkWrite(bulkOperations)
+    await Chapter.bulkWrite(bulkOperations as any)
 
     // Return updated chapters
     const updatedChapters = await Chapter.find({ _id: { $in: chapterIds } }).sort({ order: 1 })

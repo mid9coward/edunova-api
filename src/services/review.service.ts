@@ -96,7 +96,7 @@ export class ReviewService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      reviews: reviews as IReview[],
+      reviews: reviews as unknown as IReview[],
       total,
       page: pageNum,
       limit: limitNum,
@@ -224,7 +224,7 @@ export class ReviewService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      reviews: reviews as IReview[],
+      reviews: reviews as unknown as IReview[],
       total,
       page: pageNum,
       limit: limitNum,
@@ -288,7 +288,7 @@ export class ReviewService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      reviews: reviews as IReview[],
+      reviews: reviews as unknown as IReview[],
       total,
       page: pageNum,
       limit: limitNum,

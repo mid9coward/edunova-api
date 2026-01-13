@@ -33,7 +33,7 @@ export class LessonController {
     const { id } = req.params
     const { includeQuestions } = req.query
 
-    const lesson = await LessonService.getLessonById(id, includeQuestions === 'true')
+    const lesson = await LessonService.getLessonById(id as string, includeQuestions === 'true')
 
     sendSuccess.ok(res, 'Lesson retrieved successfully', lesson)
   }
@@ -45,7 +45,7 @@ export class LessonController {
     const { id } = req.params
     const updateData: UpdateLessonInput = req.body
 
-    const lesson = await LessonService.updateLesson(id, updateData)
+    const lesson = await LessonService.updateLesson(id as string, updateData)
 
     sendSuccess.ok(res, 'Lesson updated successfully', lesson)
   }
@@ -56,7 +56,7 @@ export class LessonController {
   static async deleteLesson(req: Request, res: Response): Promise<void> {
     const { id } = req.params
 
-    await LessonService.deleteLesson(id)
+    await LessonService.deleteLesson(id as string)
 
     sendSuccess.ok(res, 'Lesson deleted successfully')
   }
@@ -67,7 +67,7 @@ export class LessonController {
   static async getChapterLessons(req: Request, res: Response): Promise<void> {
     const { chapterId } = req.params
 
-    const result = await LessonService.getLessons(chapterId)
+    const result = await LessonService.getLessons(chapterId as string)
 
     sendSuccess.ok(res, 'Chapter lessons retrieved successfully', { lessons: result })
   }
@@ -79,7 +79,7 @@ export class LessonController {
     const { courseId } = req.params
     const query = req.query as unknown as GetCourseLessonsQuery
 
-    const result = await LessonService.getCourseLessons(courseId, query)
+    const result = await LessonService.getCourseLessons(courseId as string, query)
 
     sendSuccess.ok(res, 'Course lessons retrieved successfully', result)
   }

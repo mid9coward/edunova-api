@@ -93,7 +93,7 @@ export class CategoryService {
     const totalPages = Math.ceil(total / limitNum)
 
     return {
-      categories: categories as ICategory[],
+      categories: categories as unknown as ICategory[],
       pagination: {
         total,
         page: pageNum,
