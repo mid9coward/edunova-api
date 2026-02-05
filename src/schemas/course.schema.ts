@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { CourseLevel, CourseStatus, CourseType } from '../enums'
+import { objectIdSchema } from './common.schema'
 
 /**
  * Course Validation Schemas
@@ -170,6 +171,13 @@ export const getRelatedCoursesSchema = z.object({
   }),
   query: z.object({
     limit: z.string().regex(/^\d+$/, 'Limit must be a valid number').optional().default('5')
+  })
+})
+
+// Get course completion schema
+export const getCourseCompletionSchema = z.object({
+  params: z.object({
+    courseId: objectIdSchema
   })
 })
 

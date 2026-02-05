@@ -13,7 +13,8 @@ import {
   getCoursesSchema,
   deleteCourseSchema,
   bulkDeleteSchema,
-  getRelatedCoursesSchema
+  getRelatedCoursesSchema,
+  getCourseCompletionSchema
 } from '../schemas/course.schema'
 
 const router = Router()
@@ -44,6 +45,13 @@ router.get(
 
 // Get current user's courses
 router.get('/my-courses', asyncHandler(CourseController.getMyCourses))
+
+// Get course completion status for current user
+router.get(
+  '/:courseId/completion',
+  validate(getCourseCompletionSchema),
+  asyncHandler(CourseController.getCourseCompletion)
+)
 
 // Get course by ID (with permission check)
 router.get(

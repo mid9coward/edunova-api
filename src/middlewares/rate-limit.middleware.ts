@@ -111,6 +111,32 @@ export const chatbotRateLimit = rateLimit({
   handler: createRateLimitHandler(config.CHATBOT.message, Math.ceil(config.CHATBOT.windowMs / 1000))
 })
 
+// Coding exercise run rate limiter
+export const codingRunRateLimit = rateLimit({
+  windowMs: config.CODING_RUN.windowMs,
+  limit: config.CODING_RUN.limit,
+  message: {
+    error: config.CODING_RUN.message,
+    retryAfter: Math.ceil(config.CODING_RUN.windowMs / 1000)
+  },
+  ...RATE_LIMIT_HEADERS,
+  keyGenerator: (req) => req.user?.userId ?? req.ip,
+  handler: createRateLimitHandler(config.CODING_RUN.message, Math.ceil(config.CODING_RUN.windowMs / 1000))
+})
+
+// Coding exercise submit rate limiter
+export const codingSubmitRateLimit = rateLimit({
+  windowMs: config.CODING_SUBMIT.windowMs,
+  limit: config.CODING_SUBMIT.limit,
+  message: {
+    error: config.CODING_SUBMIT.message,
+    retryAfter: Math.ceil(config.CODING_SUBMIT.windowMs / 1000)
+  },
+  ...RATE_LIMIT_HEADERS,
+  keyGenerator: (req) => req.user?.userId ?? req.ip,
+  handler: createRateLimitHandler(config.CODING_SUBMIT.message, Math.ceil(config.CODING_SUBMIT.windowMs / 1000))
+})
+
 // Create account rate limiter
 export const createAccountRateLimit = rateLimit({
   windowMs: config.CREATE_ACCOUNT.windowMs,

@@ -45,7 +45,9 @@ export interface PopulatedCourse {
   // Progress fields (for enrolled courses)
   completedLessons?: number
   progressPercentage?: number
+  progressPercent?: number
   isCompleted?: boolean
+  completedAt?: Date
   progress?: Array<{
     lessonId: string
     isCompleted: boolean

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import { CourseService } from '../services/course.service'
+import { CourseCompletionService } from '../services/course-completion.service'
 import { sendSuccess } from '../utils/success'
 import { AuthenticationError, ValidationError, ErrorCodes } from '../utils/errors'
 import { CourseStatus } from '../enums'
@@ -114,6 +115,21 @@ export class CourseController {
     const courses = await CourseService.getMyCourses(userId)
 
     sendSuccess.ok(res, 'Your courses retrieved successfully', courses)
+  }
+
+  /**
+   * Get course completion status for current user
+   */
+  static async getCourseCompletion(req: Request, res: Response): Promise<void> {
+    const userId = req.user?.userId
+    if (!userId) {
+      throw new AuthenticationError('User not authenticated', ErrorCodes.INVALID_CREDENTIALS)
+    }
+
+    const { courseId } = req.params
+    const completion = await CourseCompletionService.getCompletionStatus(userId, courseId as string)
+
+    sendSuccess.ok(res, 'Course completion retrieved successfully', completion)
   }
 
   /**

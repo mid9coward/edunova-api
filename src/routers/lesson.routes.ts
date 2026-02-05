@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import { LessonController } from '../controllers/lesson.controller'
+import { SubmissionController } from '../controllers/submission.controller'
 import { authMiddleware } from '../middlewares/auth.middleware'
 import { loadUserPermissions, requirePermission } from '../middlewares/rbac.middleware'
 import { validate } from '../middlewares/validation.middleware'
 import { asyncHandler } from '../middlewares/error.middleware'
+import { codingRunRateLimit, codingSubmitRateLimit } from '../middlewares/rate-limit.middleware'
 import { PERMISSIONS } from '~/configs/permission'
 import {
   createLessonSchema,
@@ -12,7 +14,9 @@ import {
   getLessonByIdSchema,
   deleteLessonSchema,
   getCourseLessonsSchema,
-  reorderLessonsSchema
+  reorderLessonsSchema,
+  runCodeSchema,
+  submitCodeSchema
 } from '../schemas'
 
 const router = Router()
@@ -37,6 +41,12 @@ router.get(
 
 // Get lesson by ID (supports ?includeResource=true for resource population)
 router.get('/:id', validate(getLessonByIdSchema), asyncHandler(LessonController.getLessonById))
+
+// Run code for coding exercises
+router.post('/:id/run', codingRunRateLimit, validate(runCodeSchema), asyncHandler(SubmissionController.run))
+
+// Submit code for grading
+router.post('/:id/submit', codingSubmitRateLimit, validate(submitCodeSchema), asyncHandler(SubmissionController.submit))
 
 // Create lesson with resource
 router.post(

@@ -54,6 +54,34 @@ export interface IQuiz extends Document {
 }
 
 /**
+ * Coding Exercise Resource Interfaces
+ */
+export interface ICodingExerciseTestCase {
+  input: string
+  expectedOutput: string
+  isHidden: boolean
+}
+
+export interface ICodingExerciseConstraints {
+  timeLimit: number
+  memoryLimit: number
+}
+
+export interface ICodingExercise extends Document {
+  _id: mongoose.Types.ObjectId
+  title: string
+  language: string
+  version: string
+  problemStatement: string
+  starterCode: string
+  solutionCode: string
+  testCases: ICodingExerciseTestCase[]
+  constraints: ICodingExerciseConstraints
+  createdAt: Date
+  updatedAt: Date
+}
+
+/**
  * Lesson Schema
  */
 const lessonSchema = new Schema<ILesson>(
@@ -171,6 +199,93 @@ const quizSchema = new Schema<IQuiz>(
   }
 )
 
+/**
+ * Coding Exercise Resource Schema
+ */
+const codingTestCaseSchema = new Schema<ICodingExerciseTestCase>(
+  {
+    input: {
+      type: String,
+      default: ''
+    },
+    expectedOutput: {
+      type: String,
+      required: true
+    },
+    isHidden: {
+      type: Boolean,
+      default: false
+    }
+  },
+  {}
+)
+
+const codingConstraintsSchema = new Schema<ICodingExerciseConstraints>(
+  {
+    timeLimit: {
+      type: Number,
+      default: 2,
+      min: 0
+    },
+    memoryLimit: {
+      type: Number,
+      default: 128,
+      min: 0
+    }
+  },
+  {
+    _id: false
+  }
+)
+
+const codingExerciseSchema = new Schema<ICodingExercise>(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    language: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    version: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    problemStatement: {
+      type: String,
+      required: true
+    },
+    starterCode: {
+      type: String,
+      required: true
+    },
+    solutionCode: {
+      type: String,
+      required: true,
+      select: false
+    },
+    testCases: {
+      type: [codingTestCaseSchema],
+      required: true,
+      validate: {
+        validator: (value: ICodingExerciseTestCase[]) => Array.isArray(value) && value.length > 0,
+        message: 'At least one test case is required'
+      }
+    },
+    constraints: {
+      type: codingConstraintsSchema,
+      default: () => ({})
+    }
+  },
+  {
+    timestamps: true
+  }
+)
+
 // Lesson Indexes
 lessonSchema.index({ chapterId: 1, order: 1 })
 lessonSchema.index({ courseId: 1, order: 1 })
@@ -181,9 +296,11 @@ lessonSchema.index({ chapterId: 1, isPublished: 1 })
 videoSchema.index({ createdAt: -1 })
 articleSchema.index({ createdAt: -1 })
 quizSchema.index({ createdAt: -1 })
+codingExerciseSchema.index({ createdAt: -1 })
 
 // Model Exports
 export const Lesson = mongoose.model<ILesson>('Lesson', lessonSchema)
 export const Video = mongoose.model<IVideo>('Video', videoSchema)
 export const Article = mongoose.model<IArticle>('Article', articleSchema)
 export const Quiz = mongoose.model<IQuiz>('Quiz', quizSchema)
+export const CodingExercise = mongoose.model<ICodingExercise>('CodingExercise', codingExerciseSchema)

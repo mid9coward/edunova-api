@@ -61,7 +61,15 @@ export enum PaymentMethod {
 export enum LessonContentType {
   VIDEO = 'video',
   QUIZ = 'quiz',
-  ARTICLE = 'article'
+  ARTICLE = 'article',
+  CODING = 'coding'
+}
+
+export enum CodeSubmissionStatus {
+  PENDING = 'PENDING',
+  ACCEPTED = 'ACCEPTED',
+  WRONG_ANSWER = 'WRONG_ANSWER',
+  COMPILE_ERROR = 'COMPILE_ERROR'
 }
 
 export enum ReviewStatus {

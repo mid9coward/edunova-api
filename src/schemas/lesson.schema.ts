@@ -5,6 +5,36 @@ import { objectIdSchema, paginationSchema } from './common.schema'
  * Lesson and Resource Validation Schemas
  */
 
+const codingTestCaseSchema = z.object({
+  input: z.string(),
+  expectedOutput: z.string(),
+  isHidden: z.boolean().optional().default(false)
+})
+
+const codingConstraintsSchema = z
+  .object({
+    timeLimit: z.number().min(0).default(2),
+    memoryLimit: z.number().min(0).default(128)
+  })
+  .default({})
+
+const codingExerciseBodySchema = z
+  .object({
+    title: z.string().min(1, 'Title is required').max(200, 'Title too long').trim(),
+    language: z.string().min(1, 'Language is required').trim(),
+    version: z.string().min(1, 'Version is required').trim(),
+    problemStatement: z.string().min(1, 'Problem statement is required'),
+    starterCode: z.string().min(1, 'Starter code is required'),
+    solutionCode: z.string().min(1, 'Solution code is required'),
+    testCases: z.array(codingTestCaseSchema).min(1, 'At least one test case is required'),
+    constraints: codingConstraintsSchema
+  })
+
+// Create coding exercise schema
+export const createCodingExerciseSchema = z.object({
+  body: codingExerciseBodySchema
+})
+
 // Create lesson schema (supports both resource and resourceId)
 export const createLessonSchema = z.object({
   body: z
@@ -12,7 +42,7 @@ export const createLessonSchema = z.object({
       title: z.string().min(1, 'Title is required').max(200, 'Title too long').trim(),
       chapterId: objectIdSchema,
       courseId: objectIdSchema,
-      contentType: z.enum(['video', 'quiz', 'article']),
+      contentType: z.enum(['video', 'quiz', 'article', 'coding']),
       preview: z.boolean().optional().default(false),
       isPublished: z.boolean().optional().default(false),
       duration: z.number().int().optional(),
@@ -20,9 +50,27 @@ export const createLessonSchema = z.object({
       resourceId: objectIdSchema.optional(),
       resource: z.record(z.string(), z.any()).optional()
     })
-    .refine((data) => data.resourceId || data.resource, {
-      message: 'Either resourceId or resource must be provided',
-      path: ['resourceId']
+    .superRefine((data, ctx) => {
+      if (!data.resourceId && !data.resource) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Either resourceId or resource must be provided',
+          path: ['resourceId']
+        })
+      }
+
+      if (data.contentType === 'coding' && data.resource) {
+        const parsed = codingExerciseBodySchema.safeParse(data.resource)
+        if (!parsed.success) {
+          parsed.error.issues.forEach((issue) => {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: issue.message,
+              path: ['resource', ...issue.path]
+            })
+          })
+        }
+      }
     })
 })
 
@@ -71,7 +119,7 @@ export const getChapterLessonsSchema = z.object({
     chapterId: objectIdSchema
   }),
   query: paginationSchema.extend({
-    contentType: z.enum(['video', 'quiz', 'article']).optional(),
+    contentType: z.enum(['video', 'quiz', 'article', 'coding']).optional(),
     isPublished: z
       .enum(['true', 'false'])
       .transform((val) => val === 'true')
@@ -88,7 +136,7 @@ export const getCourseLessonsSchema = z.object({
   }),
   query: paginationSchema.extend({
     chapterId: objectIdSchema.optional(),
-    contentType: z.enum(['video', 'quiz', 'article']).optional(),
+    contentType: z.enum(['video', 'quiz', 'article', 'coding']).optional(),
     isPublished: z
       .enum(['true', 'false'])
       .transform((val) => val === 'true')
@@ -109,6 +157,33 @@ export const reorderLessonsSchema = z.object({
         })
       )
       .min(1, 'At least one lesson is required')
+  })
+})
+
+/**
+ * Coding submission schemas
+ */
+
+export const runCodeSchema = z.object({
+  params: z.object({
+    id: objectIdSchema
+  }),
+  body: z.object({
+    sourceCode: z.string().min(1, 'Source code is required'),
+    language: z.string().min(1, 'Language is required'),
+    version: z.string().min(1, 'Version is required'),
+    stdin: z.string().optional()
+  })
+})
+
+export const submitCodeSchema = z.object({
+  params: z.object({
+    id: objectIdSchema
+  }),
+  body: z.object({
+    sourceCode: z.string().min(1, 'Source code is required'),
+    language: z.string().min(1, 'Language is required'),
+    version: z.string().min(1, 'Version is required')
   })
 })
 
@@ -292,6 +367,9 @@ export type GetLessonsQuery = z.infer<typeof getLessonsQuerySchema>['query']
 export type GetChapterLessonsQuery = z.infer<typeof getChapterLessonsSchema>['query']
 export type GetCourseLessonsQuery = z.infer<typeof getCourseLessonsSchema>['query']
 export type ReorderLessonsInput = z.infer<typeof reorderLessonsSchema>['body']
+export type CreateCodingExerciseInput = z.infer<typeof createCodingExerciseSchema>['body']
+export type RunCodeInput = z.infer<typeof runCodeSchema>['body']
+export type SubmitCodeInput = z.infer<typeof submitCodeSchema>['body']
 
 // Video type exports
 export type CreateVideoInput = z.infer<typeof createVideoSchema>['body']

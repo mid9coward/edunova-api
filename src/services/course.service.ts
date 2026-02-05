@@ -1223,6 +1223,28 @@ export class CourseService {
           as: 'completedTracks'
         }
       },
+      // Lookup course completion records
+      {
+        $lookup: {
+          from: 'coursecompletions',
+          let: { courseId: '$_id', userId: new mongoose.Types.ObjectId(userId) },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [{ $eq: ['$userId', '$$userId'] }, { $eq: ['$courseId', '$$courseId'] }]
+                }
+              }
+            },
+            {
+              $project: {
+                completedAt: 1
+              }
+            }
+          ],
+          as: 'completionRecords'
+        }
+      },
       // Lookup reviews for rating
       {
         $lookup: {
@@ -1256,7 +1278,28 @@ export class CourseService {
           },
 
           // Count total reviews
-          totalReviews: { $size: '$reviews' }
+          totalReviews: { $size: '$reviews' },
+
+          completedAt: { $arrayElemAt: ['$completionRecords.completedAt', 0] }
+        }
+      },
+      // Compute completion flag based on counts
+      {
+        $addFields: {
+          isCompleted: {
+            $cond: {
+              if: { $gt: ['$totalLessons', 0] },
+              then: { $eq: ['$completedLessons', '$totalLessons'] },
+              else: false
+            }
+          },
+          progressPercent: {
+            $cond: {
+              if: { $gt: ['$totalLessons', 0] },
+              then: { $round: [{ $multiply: [{ $divide: ['$completedLessons', '$totalLessons'] }, 100] }, 0] },
+              else: 0
+            }
+          }
         }
       },
       // Sort by creation date
@@ -1275,6 +1318,9 @@ export class CourseService {
           level: 1,
           totalLessons: 1,
           completedLessons: 1,
+          isCompleted: 1,
+          completedAt: 1,
+          progressPercent: 1,
           averageRating: 1,
           totalReviews: 1
         }

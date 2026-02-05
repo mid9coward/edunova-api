@@ -35,6 +35,36 @@ export class LessonController {
 
     const lesson = await LessonService.getLessonById(id as string, includeQuestions === 'true')
 
+    if (lesson.contentType === 'coding' && lesson.resource) {
+      const resource = lesson.resource as {
+        solutionCode?: string
+        testCases?: Array<{ _id?: string; input?: string; expectedOutput?: string; isHidden?: boolean }>
+        [key: string]: unknown
+      }
+
+      const sanitizedResource = { ...resource }
+      delete sanitizedResource.solutionCode
+
+      if (Array.isArray(resource.testCases)) {
+        sanitizedResource.testCases = resource.testCases.map((testCase) => {
+          if (testCase?.isHidden) {
+            const hidden: { _id?: string; isHidden: true } = { isHidden: true }
+            if (testCase._id) {
+              hidden._id = String(testCase._id)
+            }
+            return hidden
+          }
+          const visible = { ...testCase }
+          if (visible._id) {
+            visible._id = String(visible._id)
+          }
+          return visible
+        })
+      }
+
+      lesson.resource = sanitizedResource as typeof lesson.resource
+    }
+
     sendSuccess.ok(res, 'Lesson retrieved successfully', lesson)
   }
 

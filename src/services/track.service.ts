@@ -4,6 +4,7 @@ import { Course } from '../models/course'
 import { Lesson } from '../models/lesson'
 import { AppError } from '../utils/errors'
 import { CreateTrackInput, GetTrackQuery, GetCourseTrackQuery, GetUserTrackQuery } from '../schemas/track.schema'
+import { CourseCompletionService } from './course-completion.service'
 
 /**
  * Track Management Service
@@ -46,6 +47,7 @@ export class TrackService {
     if (existingTrack) {
       // Track exists, remove it
       await Track.findByIdAndDelete(existingTrack._id)
+      await CourseCompletionService.syncCompletionForUserCourse(userId, trackData.courseId)
       return null
     } else {
       // Track doesn't exist, create it
@@ -56,6 +58,7 @@ export class TrackService {
       })
 
       await track.save()
+      await CourseCompletionService.syncCompletionForUserCourse(userId, trackData.courseId)
       return track
     }
   }

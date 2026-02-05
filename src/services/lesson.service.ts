@@ -1,5 +1,16 @@
 import mongoose, { FilterQuery } from 'mongoose'
-import { Lesson, ILesson, Video, IVideo, Article, IArticle, Quiz, IQuiz } from '../models/lesson'
+import {
+  Lesson,
+  ILesson,
+  Video,
+  IVideo,
+  Article,
+  IArticle,
+  Quiz,
+  IQuiz,
+  CodingExercise,
+  ICodingExercise
+} from '../models/lesson'
 import { QuizQuestion } from '../models/quiz-question'
 import { Chapter } from '../models/chapter'
 import { Course } from '../models/course'
@@ -38,12 +49,31 @@ type QuizResource = {
   }[]
 }
 
+type CodingExerciseResource = {
+  title: string
+  language: string
+  version: string
+  problemStatement: string
+  starterCode: string
+  solutionCode: string
+  testCases: {
+    input: string
+    expectedOutput: string
+    isHidden?: boolean
+  }[]
+  constraints?: {
+    timeLimit?: number
+    memoryLimit?: number
+  }
+}
+
 type VideoUpdateData = Partial<VideoResource>
 type ArticleUpdateData = Partial<ArticleResource>
 type QuizUpdateData = Partial<QuizResource>
-type UpdateResource = VideoUpdateData | ArticleUpdateData | QuizUpdateData
+type CodingExerciseUpdateData = Partial<CodingExerciseResource>
+type UpdateResource = VideoUpdateData | ArticleUpdateData | QuizUpdateData | CodingExerciseUpdateData
 
-type CreatedResource = IVideo | IArticle | IQuiz
+type CreatedResource = IVideo | IArticle | IQuiz | ICodingExercise
 
 // Extended Quiz interface that includes totalQuestions count and optionally questions
 type IQuizWithQuestions = IQuiz & {
@@ -64,13 +94,13 @@ interface LessonWithResource {
   chapterId: mongoose.Types.ObjectId | { title: string; courseId: mongoose.Types.ObjectId }
   courseId: mongoose.Types.ObjectId
   resourceId: mongoose.Types.ObjectId
-  contentType: 'video' | 'quiz' | 'article'
+  contentType: 'video' | 'quiz' | 'article' | 'coding'
   order: number
   preview: boolean
   isPublished: boolean
   createdAt: Date
   updatedAt: Date
-  resource: IVideo | IArticle | IQuizWithQuestions | null
+  resource: IVideo | IArticle | IQuizWithQuestions | ICodingExercise | null
 }
 
 interface CourseLessonsResult {
@@ -163,6 +193,11 @@ export class LessonService {
             }
             break
           }
+          case 'coding': {
+            const codingData = lessonData.resource as CodingExerciseResource
+            createdResources = await CodingExercise.create([codingData], { session, ordered: true })
+            break
+          }
           default:
             throw new ValidationError('Invalid content type', ErrorCodes.INVALID_INPUT_FORMAT)
         }
@@ -246,7 +281,7 @@ export class LessonService {
     const lessonData = lesson[0]
 
     // Get resource data based on content type with direct logic
-    let resource: IVideo | IArticle | IQuizWithQuestions | null = null
+    let resource: IVideo | IArticle | IQuizWithQuestions | ICodingExercise | null = null
 
     switch (lessonData.contentType) {
       case 'video': {
@@ -279,6 +314,10 @@ export class LessonService {
             ...(questions && { questions })
           } as unknown as IQuizWithQuestions
         }
+        break
+      }
+      case 'coding': {
+        resource = (await CodingExercise.findById(lessonData.resourceId).lean()) as unknown as ICodingExercise
         break
       }
       default:
@@ -461,7 +500,8 @@ export class LessonService {
     // Get resource data for each lesson (only description)
     const lessonsWithResources = await Promise.all(
       lessons.map(async (lesson) => {
-        const selectFields: string[] = ['description']
+        const selectFields: string[] =
+          lesson.contentType === 'coding' ? ['title', 'language', 'problemStatement', 'starterCode'] : ['description']
 
         const resource = await this.getResourceByType(lesson.contentType, lesson.resourceId, selectFields)
         return {
@@ -481,7 +521,7 @@ export class LessonService {
     contentType: string,
     resourceId: mongoose.Types.ObjectId,
     selectFields?: string | string[]
-  ): Promise<IVideo | IArticle | IQuiz | null> {
+  ): Promise<IVideo | IArticle | IQuiz | ICodingExercise | null> {
     // Convert array to object if needed
     const selectQuery = Array.isArray(selectFields) ? getSelectData(selectFields) : selectFields
 
@@ -500,6 +540,11 @@ export class LessonService {
         const query = Quiz.findById(resourceId)
         const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean()
         return result as unknown as IQuiz
+      }
+      case 'coding': {
+        const query = CodingExercise.findById(resourceId)
+        const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean()
+        return result as unknown as ICodingExercise
       }
       default:
         throw new ValidationError('Invalid content type', ErrorCodes.INVALID_INPUT_FORMAT)
@@ -552,6 +597,14 @@ export class LessonService {
         const updatedQuiz = await Quiz.findByIdAndUpdate(resourceId, finalUpdateData, { session, new: true })
         return updatedQuiz
       }
+      case 'coding': {
+        const codingData = resource as CodingExerciseUpdateData
+        const updatedCoding = await CodingExercise.findByIdAndUpdate(resourceId, codingData, {
+          session,
+          new: true
+        })
+        return updatedCoding
+      }
       default:
         throw new ValidationError('Invalid content type', ErrorCodes.INVALID_INPUT_FORMAT)
     }
@@ -586,6 +639,13 @@ export class LessonService {
         const deletedQuiz = await Quiz.findByIdAndDelete(resourceId, { session })
         if (!deletedQuiz) {
           throw new NotFoundError('Quiz resource not found', ErrorCodes.LESSON_NOT_FOUND)
+        }
+        break
+      }
+      case 'coding': {
+        const deletedExercise = await CodingExercise.findByIdAndDelete(resourceId, { session })
+        if (!deletedExercise) {
+          throw new NotFoundError('Coding exercise resource not found', ErrorCodes.LESSON_NOT_FOUND)
         }
         break
       }
