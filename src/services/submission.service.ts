@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios'
+import axios, { AxiosError, AxiosInstance } from 'axios'
 import { Lesson, CodingExercise } from '../models/lesson'
 import { CodeSubmission } from '../models/submission'
 import { Track } from '../models/track'
@@ -56,6 +56,73 @@ export class SubmissionService {
     })
   }
 
+  private static sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+  }
+
+  private static getRetryAttempts(): number {
+    const parsed = Number.parseInt(process.env.PISTON_RETRY_ATTEMPTS || '3', 10)
+    if (Number.isNaN(parsed)) return 3
+    return Math.max(1, parsed)
+  }
+
+  private static getSubmitDelayMs(): number {
+    const parsed = Number.parseInt(process.env.PISTON_SUBMIT_DELAY_MS || '250', 10)
+    if (Number.isNaN(parsed)) return 250
+    return Math.max(0, parsed)
+  }
+
+  private static getRetryAfterMs(error: AxiosError): number | null {
+    const rawRetryAfter = error.response?.headers?.['retry-after']
+    if (!rawRetryAfter) return null
+
+    const normalized = Array.isArray(rawRetryAfter) ? rawRetryAfter[0] : rawRetryAfter
+    const asNumber = Number.parseFloat(normalized)
+    if (!Number.isNaN(asNumber)) {
+      return Math.max(0, Math.ceil(asNumber * 1000))
+    }
+
+    const asDate = Date.parse(normalized)
+    if (Number.isNaN(asDate)) return null
+    return Math.max(0, asDate - Date.now())
+  }
+
+  private static isRetryablePistonError(error: unknown): boolean {
+    if (!axios.isAxiosError(error)) return false
+
+    const axiosError = error as AxiosError
+    const status = axiosError.response?.status
+    if (status && [429, 500, 502, 503, 504].includes(status)) {
+      return true
+    }
+
+    const code = axiosError.code
+    return (
+      code === 'ECONNABORTED' ||
+      code === 'ETIMEDOUT' ||
+      code === 'ECONNRESET' ||
+      code === 'ENOTFOUND' ||
+      code === 'EAI_AGAIN'
+    )
+  }
+
+  private static toExternalErrorMessage(error: unknown): string {
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status
+      const responseData = error.response?.data as
+        | {
+            message?: string
+            error?: string
+          }
+        | undefined
+      const responseMessage = responseData?.message || responseData?.error
+      if (status) {
+        return responseMessage ? `Piston error ${status}: ${responseMessage}` : `Piston error ${status}`
+      }
+    }
+    return error instanceof Error ? error.message : 'Piston request failed'
+  }
+
   private static async getRuntimes(): Promise<PistonRuntime[]> {
     const now = Date.now()
     if (this.runtimeCache.expiresAt > now && this.runtimeCache.runtimes.length > 0) {
@@ -103,21 +170,48 @@ export class SubmissionService {
   }
 
   private static async ensureRuntimeSupported(language: string, version: string): Promise<void> {
-    const runtimes = await this.getRuntimes()
-    if (!this.isRuntimeSupported(language, version, runtimes)) {
-      throw new ValidationError('Runtime is not supported', ErrorCodes.INVALID_INPUT_FORMAT)
+    try {
+      const runtimes = await this.getRuntimes()
+      if (!this.isRuntimeSupported(language, version, runtimes)) {
+        throw new ValidationError('Runtime is not supported', ErrorCodes.INVALID_INPUT_FORMAT)
+      }
+    } catch (error) {
+      // If runtime lookup fails due external transient issues, defer validation to execute call.
+      if (error instanceof ValidationError) {
+        throw error
+      }
     }
   }
 
   private static async execute(payload: PistonExecuteRequest): Promise<PistonExecuteResponse> {
-    try {
-      const client = this.buildPistonClient()
-      const response = await client.post<PistonExecuteResponse>('/execute', payload)
-      return response.data
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Piston execute failed'
-      throw new ExternalServiceError(message)
+    const client = this.buildPistonClient()
+    const maxAttempts = this.getRetryAttempts()
+    let lastError: unknown = null
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await client.post<PistonExecuteResponse>('/execute', payload)
+        return response.data
+      } catch (error) {
+        lastError = error
+        const isRetryable = this.isRetryablePistonError(error)
+        if (!isRetryable || attempt === maxAttempts) {
+          break
+        }
+
+        let delayMs = 200 * attempt
+        if (axios.isAxiosError(error)) {
+          const retryAfterMs = this.getRetryAfterMs(error)
+          if (retryAfterMs !== null) {
+            delayMs = retryAfterMs
+          }
+        }
+
+        await this.sleep(delayMs)
+      }
     }
+
+    throw new ExternalServiceError(this.toExternalErrorMessage(lastError))
   }
 
   private static parseExecutionTime(run?: PistonRunResult): number {
@@ -230,7 +324,14 @@ export class SubmissionService {
 
     const results: PistonExecuteResponse[] = []
 
-    for (const testCase of testCases) {
+    const submitDelayMs = this.getSubmitDelayMs()
+
+    for (let index = 0; index < testCases.length; index++) {
+      if (index > 0 && submitDelayMs > 0) {
+        await this.sleep(submitDelayMs)
+      }
+
+      const testCase = testCases[index]
       const result = await this.execute({
         language: payload.language,
         version: payload.version,
@@ -243,6 +344,10 @@ export class SubmissionService {
         stdin: testCase.input ?? ''
       })
       results.push(result)
+
+      if (this.isCompileError(result)) {
+        break
+      }
     }
 
     const perTestResults = results.map((result, index) => {

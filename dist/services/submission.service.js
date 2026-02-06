@@ -25,6 +25,61 @@ class SubmissionService {
             timeout: Number.isNaN(timeout) ? 30000 : timeout
         });
     }
+    static sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    static getRetryAttempts() {
+        const parsed = Number.parseInt(process.env.PISTON_RETRY_ATTEMPTS || '3', 10);
+        if (Number.isNaN(parsed))
+            return 3;
+        return Math.max(1, parsed);
+    }
+    static getSubmitDelayMs() {
+        const parsed = Number.parseInt(process.env.PISTON_SUBMIT_DELAY_MS || '250', 10);
+        if (Number.isNaN(parsed))
+            return 250;
+        return Math.max(0, parsed);
+    }
+    static getRetryAfterMs(error) {
+        const rawRetryAfter = error.response?.headers?.['retry-after'];
+        if (!rawRetryAfter)
+            return null;
+        const normalized = Array.isArray(rawRetryAfter) ? rawRetryAfter[0] : rawRetryAfter;
+        const asNumber = Number.parseFloat(normalized);
+        if (!Number.isNaN(asNumber)) {
+            return Math.max(0, Math.ceil(asNumber * 1000));
+        }
+        const asDate = Date.parse(normalized);
+        if (Number.isNaN(asDate))
+            return null;
+        return Math.max(0, asDate - Date.now());
+    }
+    static isRetryablePistonError(error) {
+        if (!axios_1.default.isAxiosError(error))
+            return false;
+        const axiosError = error;
+        const status = axiosError.response?.status;
+        if (status && [429, 500, 502, 503, 504].includes(status)) {
+            return true;
+        }
+        const code = axiosError.code;
+        return (code === 'ECONNABORTED' ||
+            code === 'ETIMEDOUT' ||
+            code === 'ECONNRESET' ||
+            code === 'ENOTFOUND' ||
+            code === 'EAI_AGAIN');
+    }
+    static toExternalErrorMessage(error) {
+        if (axios_1.default.isAxiosError(error)) {
+            const status = error.response?.status;
+            const responseData = error.response?.data;
+            const responseMessage = responseData?.message || responseData?.error;
+            if (status) {
+                return responseMessage ? `Piston error ${status}: ${responseMessage}` : `Piston error ${status}`;
+            }
+        }
+        return error instanceof Error ? error.message : 'Piston request failed';
+    }
     static async getRuntimes() {
         const now = Date.now();
         if (this.runtimeCache.expiresAt > now && this.runtimeCache.runtimes.length > 0) {
@@ -64,21 +119,45 @@ class SubmissionService {
         return runtimes.some((runtime) => matchesLanguage(runtime) && runtime.version === version);
     }
     static async ensureRuntimeSupported(language, version) {
-        const runtimes = await this.getRuntimes();
-        if (!this.isRuntimeSupported(language, version, runtimes)) {
-            throw new errors_1.ValidationError('Runtime is not supported', errors_1.ErrorCodes.INVALID_INPUT_FORMAT);
+        try {
+            const runtimes = await this.getRuntimes();
+            if (!this.isRuntimeSupported(language, version, runtimes)) {
+                throw new errors_1.ValidationError('Runtime is not supported', errors_1.ErrorCodes.INVALID_INPUT_FORMAT);
+            }
+        }
+        catch (error) {
+            // If runtime lookup fails due external transient issues, defer validation to execute call.
+            if (error instanceof errors_1.ValidationError) {
+                throw error;
+            }
         }
     }
     static async execute(payload) {
-        try {
-            const client = this.buildPistonClient();
-            const response = await client.post('/execute', payload);
-            return response.data;
+        const client = this.buildPistonClient();
+        const maxAttempts = this.getRetryAttempts();
+        let lastError = null;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const response = await client.post('/execute', payload);
+                return response.data;
+            }
+            catch (error) {
+                lastError = error;
+                const isRetryable = this.isRetryablePistonError(error);
+                if (!isRetryable || attempt === maxAttempts) {
+                    break;
+                }
+                let delayMs = 200 * attempt;
+                if (axios_1.default.isAxiosError(error)) {
+                    const retryAfterMs = this.getRetryAfterMs(error);
+                    if (retryAfterMs !== null) {
+                        delayMs = retryAfterMs;
+                    }
+                }
+                await this.sleep(delayMs);
+            }
         }
-        catch (error) {
-            const message = error instanceof Error ? error.message : 'Piston execute failed';
-            throw new errors_1.ExternalServiceError(message);
-        }
+        throw new errors_1.ExternalServiceError(this.toExternalErrorMessage(lastError));
     }
     static parseExecutionTime(run) {
         if (!run)
@@ -170,7 +249,12 @@ class SubmissionService {
         }
         await this.ensureRuntimeSupported(payload.language, payload.version);
         const results = [];
-        for (const testCase of testCases) {
+        const submitDelayMs = this.getSubmitDelayMs();
+        for (let index = 0; index < testCases.length; index++) {
+            if (index > 0 && submitDelayMs > 0) {
+                await this.sleep(submitDelayMs);
+            }
+            const testCase = testCases[index];
             const result = await this.execute({
                 language: payload.language,
                 version: payload.version,
@@ -183,6 +267,9 @@ class SubmissionService {
                 stdin: testCase.input ?? ''
             });
             results.push(result);
+            if (this.isCompileError(result)) {
+                break;
+            }
         }
         const perTestResults = results.map((result, index) => {
             const actual = this.normalizeOutput(this.getStdout(result));
