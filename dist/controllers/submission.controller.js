@@ -9,6 +9,13 @@ const success_1 = require("../utils/success");
  */
 class SubmissionController {
     /**
+     * List coding runtimes for authoring forms
+     */
+    static async getRuntimes(_req, res) {
+        const runtimes = await submission_service_1.SubmissionService.listAvailableRuntimes();
+        success_1.sendSuccess.ok(res, 'Coding runtimes retrieved successfully', runtimes);
+    }
+    /**
      * Run code with custom input (stateless)
      */
     static async run(req, res) {

@@ -19,6 +19,8 @@ router.use(auth_middleware_1.authMiddleware);
 router.use(rbac_middleware_1.loadUserPermissions);
 // Admin routes - require specific permissions
 router.get('/', (0, rbac_middleware_1.requirePermission)(permission_1.PERMISSIONS.LESSON_READ), (0, validation_middleware_1.validate)(schemas_1.getLessonsQuerySchema), (0, error_middleware_1.asyncHandler)(lesson_controller_1.LessonController.getLessons));
+// List available coding runtimes (language + versions)
+router.get('/coding/runtimes', (0, error_middleware_1.asyncHandler)(submission_controller_1.SubmissionController.getRuntimes));
 // Get lesson by ID (supports ?includeResource=true for resource population)
 router.get('/:id', (0, validation_middleware_1.validate)(schemas_1.getLessonByIdSchema), (0, error_middleware_1.asyncHandler)(lesson_controller_1.LessonController.getLessonById));
 // Run code for coding exercises

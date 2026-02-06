@@ -39,6 +39,12 @@ type PistonExecuteResponse = {
   compile?: PistonRunResult
 }
 
+export type CodingRuntimeOption = {
+  language: string
+  versions: string[]
+  aliases: string[]
+}
+
 export class SubmissionService {
   private static runtimeCache: { runtimes: PistonRuntime[]; expiresAt: number } = {
     runtimes: [],
@@ -144,6 +150,57 @@ export class SubmissionService {
       const message = error instanceof Error ? error.message : 'Failed to fetch Piston runtimes'
       throw new ExternalServiceError(message)
     }
+  }
+
+  static async listAvailableRuntimes(): Promise<CodingRuntimeOption[]> {
+    const runtimes = await this.getRuntimes()
+    const runtimeMap = new Map<
+      string,
+      {
+        language: string
+        versions: Set<string>
+        aliases: Set<string>
+      }
+    >()
+
+    for (const runtime of runtimes) {
+      const normalizedLanguage = this.normalizeLanguage(runtime.language)
+      if (!normalizedLanguage) continue
+
+      const existing = runtimeMap.get(normalizedLanguage) ?? {
+        language: normalizedLanguage,
+        versions: new Set<string>(),
+        aliases: new Set<string>()
+      }
+
+      const normalizedVersion = runtime.version?.trim()
+      if (normalizedVersion) {
+        existing.versions.add(normalizedVersion)
+      }
+
+      runtime.aliases?.forEach((alias) => {
+        const normalizedAlias = this.normalizeLanguage(alias)
+        if (normalizedAlias) {
+          existing.aliases.add(normalizedAlias)
+        }
+      })
+
+      runtimeMap.set(normalizedLanguage, existing)
+    }
+
+    const collator = new Intl.Collator(undefined, {
+      numeric: true,
+      sensitivity: 'base'
+    })
+
+    return Array.from(runtimeMap.values())
+      .map((entry) => ({
+        language: entry.language,
+        versions: Array.from(entry.versions).sort((a, b) => collator.compare(b, a)),
+        aliases: Array.from(entry.aliases).sort((a, b) => collator.compare(a, b))
+      }))
+      .filter((entry) => entry.versions.length > 0)
+      .sort((a, b) => collator.compare(a.language, b.language))
   }
 
   private static normalizeOutput(value?: string | null): string {

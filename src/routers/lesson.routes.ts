@@ -39,6 +39,9 @@ router.get(
   asyncHandler(LessonController.getLessons)
 )
 
+// List available coding runtimes (language + versions)
+router.get('/coding/runtimes', asyncHandler(SubmissionController.getRuntimes))
+
 // Get lesson by ID (supports ?includeResource=true for resource population)
 router.get('/:id', validate(getLessonByIdSchema), asyncHandler(LessonController.getLessonById))
 

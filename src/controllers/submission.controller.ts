@@ -9,6 +9,14 @@ import type { RunCodeInput, SubmitCodeInput } from '../schemas/lesson.schema'
  */
 export class SubmissionController {
   /**
+   * List coding runtimes for authoring forms
+   */
+  static async getRuntimes(_req: Request, res: Response): Promise<void> {
+    const runtimes = await SubmissionService.listAvailableRuntimes()
+    sendSuccess.ok(res, 'Coding runtimes retrieved successfully', runtimes)
+  }
+
+  /**
    * Run code with custom input (stateless)
    */
   static async run(req: Request, res: Response): Promise<void> {
