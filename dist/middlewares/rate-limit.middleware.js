@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createAccountRateLimit = exports.chatbotRateLimit = exports.uploadRateLimit = exports.searchRateLimit = exports.paymentRateLimit = exports.passwordResetRateLimit = exports.authRateLimit = exports.defaultRateLimit = void 0;
+exports.createAccountRateLimit = exports.codingSubmitRateLimit = exports.codingRunRateLimit = exports.chatbotRateLimit = exports.uploadRateLimit = exports.searchRateLimit = exports.paymentRateLimit = exports.passwordResetRateLimit = exports.authRateLimit = exports.defaultRateLimit = void 0;
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const rate_limit_config_1 = require("../configs/rate-limit.config");
 const errors_1 = require("../utils/errors");
@@ -103,6 +103,30 @@ exports.chatbotRateLimit = (0, express_rate_limit_1.default)({
     },
     ...rate_limit_config_1.RATE_LIMIT_HEADERS,
     handler: createRateLimitHandler(config.CHATBOT.message, Math.ceil(config.CHATBOT.windowMs / 1000))
+});
+// Coding exercise run rate limiter
+exports.codingRunRateLimit = (0, express_rate_limit_1.default)({
+    windowMs: config.CODING_RUN.windowMs,
+    limit: config.CODING_RUN.limit,
+    message: {
+        error: config.CODING_RUN.message,
+        retryAfter: Math.ceil(config.CODING_RUN.windowMs / 1000)
+    },
+    ...rate_limit_config_1.RATE_LIMIT_HEADERS,
+    keyGenerator: (req) => req.user?.userId ?? req.ip ?? 'anonymous',
+    handler: createRateLimitHandler(config.CODING_RUN.message, Math.ceil(config.CODING_RUN.windowMs / 1000))
+});
+// Coding exercise submit rate limiter
+exports.codingSubmitRateLimit = (0, express_rate_limit_1.default)({
+    windowMs: config.CODING_SUBMIT.windowMs,
+    limit: config.CODING_SUBMIT.limit,
+    message: {
+        error: config.CODING_SUBMIT.message,
+        retryAfter: Math.ceil(config.CODING_SUBMIT.windowMs / 1000)
+    },
+    ...rate_limit_config_1.RATE_LIMIT_HEADERS,
+    keyGenerator: (req) => req.user?.userId ?? req.ip ?? 'anonymous',
+    handler: createRateLimitHandler(config.CODING_SUBMIT.message, Math.ceil(config.CODING_SUBMIT.windowMs / 1000))
 });
 // Create account rate limiter
 exports.createAccountRateLimit = (0, express_rate_limit_1.default)({

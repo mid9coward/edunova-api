@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CourseController = void 0;
 const course_service_1 = require("../services/course.service");
+const course_completion_service_1 = require("../services/course-completion.service");
 const success_1 = require("../utils/success");
 const errors_1 = require("../utils/errors");
 const enums_1 = require("../enums");
@@ -94,6 +95,18 @@ class CourseController {
         }
         const courses = await course_service_1.CourseService.getMyCourses(userId);
         success_1.sendSuccess.ok(res, 'Your courses retrieved successfully', courses);
+    }
+    /**
+     * Get course completion status for current user
+     */
+    static async getCourseCompletion(req, res) {
+        const userId = req.user?.userId;
+        if (!userId) {
+            throw new errors_1.AuthenticationError('User not authenticated', errors_1.ErrorCodes.INVALID_CREDENTIALS);
+        }
+        const { courseId } = req.params;
+        const completion = await course_completion_service_1.CourseCompletionService.getCompletionStatus(userId, courseId);
+        success_1.sendSuccess.ok(res, 'Course completion retrieved successfully', completion);
     }
     /**
      * Search courses

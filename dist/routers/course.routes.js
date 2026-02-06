@@ -24,6 +24,8 @@ router.use(rbac_middleware_1.loadUserPermissions);
 router.get('/', (0, rbac_middleware_1.requirePermission)(permission_1.PERMISSIONS.COURSE_READ), (0, validation_middleware_1.validate)(course_schema_1.getCoursesSchema), (0, error_middleware_1.asyncHandler)(course_controller_1.CourseController.getCourses));
 // Get current user's courses
 router.get('/my-courses', (0, error_middleware_1.asyncHandler)(course_controller_1.CourseController.getMyCourses));
+// Get course completion status for current user
+router.get('/:courseId/completion', (0, validation_middleware_1.validate)(course_schema_1.getCourseCompletionSchema), (0, error_middleware_1.asyncHandler)(course_controller_1.CourseController.getCourseCompletion));
 // Get course by ID (with permission check)
 router.get('/:courseId', (0, rbac_middleware_1.requirePermission)(permission_1.PERMISSIONS.COURSE_READ), (0, validation_middleware_1.validate)(course_schema_1.getCourseByIdSchema), (0, error_middleware_1.asyncHandler)(course_controller_1.CourseController.getCourseById));
 // Create new course

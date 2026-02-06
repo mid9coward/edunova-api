@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PaymentService = exports.CheckoutService = exports.OrderService = exports.CartService = exports.QuizAttemptService = exports.QuizQuestionService = exports.BlogService = exports.CommentService = exports.ReviewService = exports.CouponService = exports.TrackService = exports.LessonService = exports.ChapterService = exports.CategoryService = exports.CourseService = exports.RoleService = exports.UserService = exports.AuthService = void 0;
+exports.CourseCompletionService = exports.SubmissionService = exports.PaymentService = exports.CheckoutService = exports.OrderService = exports.CartService = exports.QuizAttemptService = exports.QuizQuestionService = exports.BlogService = exports.CommentService = exports.ReviewService = exports.CouponService = exports.TrackService = exports.LessonService = exports.ChapterService = exports.CategoryService = exports.CourseService = exports.RoleService = exports.UserService = exports.AuthService = void 0;
 var auth_service_1 = require("./auth.service");
 Object.defineProperty(exports, "AuthService", { enumerable: true, get: function () { return auth_service_1.AuthService; } });
 var user_service_1 = require("./user.service");
@@ -37,3 +37,7 @@ var checkout_service_1 = require("./checkout.service");
 Object.defineProperty(exports, "CheckoutService", { enumerable: true, get: function () { return checkout_service_1.CheckoutService; } });
 var payment_service_1 = require("./payment.service");
 Object.defineProperty(exports, "PaymentService", { enumerable: true, get: function () { return payment_service_1.PaymentService; } });
+var submission_service_1 = require("./submission.service");
+Object.defineProperty(exports, "SubmissionService", { enumerable: true, get: function () { return submission_service_1.SubmissionService; } });
+var course_completion_service_1 = require("./course-completion.service");
+Object.defineProperty(exports, "CourseCompletionService", { enumerable: true, get: function () { return course_completion_service_1.CourseCompletionService; } });

@@ -6,6 +6,7 @@ const user_1 = require("../models/user");
 const course_1 = require("../models/course");
 const lesson_1 = require("../models/lesson");
 const errors_1 = require("../utils/errors");
+const course_completion_service_1 = require("./course-completion.service");
 /**
  * Track Management Service
  * CRUD operations for lesson tracking
@@ -42,6 +43,7 @@ class TrackService {
         if (existingTrack) {
             // Track exists, remove it
             await track_1.Track.findByIdAndDelete(existingTrack._id);
+            await course_completion_service_1.CourseCompletionService.syncCompletionForUserCourse(userId, trackData.courseId);
             return null;
         }
         else {
@@ -52,6 +54,7 @@ class TrackService {
                 lessonId: trackData.lessonId
             });
             await track.save();
+            await course_completion_service_1.CourseCompletionService.syncCompletionForUserCourse(userId, trackData.courseId);
             return track;
         }
     }

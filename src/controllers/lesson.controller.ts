@@ -36,33 +36,37 @@ export class LessonController {
     const lesson = await LessonService.getLessonById(id as string, includeQuestions === 'true')
 
     if (lesson.contentType === 'coding' && lesson.resource) {
-      const resource = lesson.resource as {
+      const resource = lesson.resource as unknown as {
         solutionCode?: string
-        testCases?: Array<{ _id?: string; input?: string; expectedOutput?: string; isHidden?: boolean }>
+        testCases?: Array<{ _id?: unknown; input?: string; expectedOutput?: string; isHidden?: boolean }>
         [key: string]: unknown
       }
 
-      const sanitizedResource = { ...resource }
+      const sanitizedResource: Record<string, unknown> = { ...resource }
       delete sanitizedResource.solutionCode
 
       if (Array.isArray(resource.testCases)) {
         sanitizedResource.testCases = resource.testCases.map((testCase) => {
           if (testCase?.isHidden) {
             const hidden: { _id?: string; isHidden: true } = { isHidden: true }
-            if (testCase._id) {
+            if (testCase._id !== undefined) {
               hidden._id = String(testCase._id)
             }
             return hidden
           }
-          const visible = { ...testCase }
-          if (visible._id) {
-            visible._id = String(visible._id)
+          const visible: { _id?: string; input?: string; expectedOutput?: string; isHidden?: boolean } = {
+            input: testCase.input,
+            expectedOutput: testCase.expectedOutput,
+            isHidden: testCase.isHidden
+          }
+          if (testCase._id !== undefined) {
+            visible._id = String(testCase._id)
           }
           return visible
         })
       }
 
-      lesson.resource = sanitizedResource as typeof lesson.resource
+      lesson.resource = sanitizedResource as unknown as typeof lesson.resource
     }
 
     sendSuccess.ok(res, 'Lesson retrieved successfully', lesson)

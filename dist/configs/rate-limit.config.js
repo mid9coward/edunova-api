@@ -61,6 +61,18 @@ exports.RATE_LIMIT_CONFIG = {
         windowMs: 1 * 60 * 1000, // 1 minute
         limit: 10, // requests per window
         message: 'Too many chatbot requests, please try again later.'
+    },
+    // Coding exercise run endpoint
+    CODING_RUN: {
+        windowMs: 1 * 1000, // 1 second
+        limit: 3, // requests per window
+        message: 'Too many code runs, please wait 1 second before retrying.'
+    },
+    // Coding exercise submit endpoint
+    CODING_SUBMIT: {
+        windowMs: 1 * 1000, // 1 second
+        limit: 1, // requests per window
+        message: 'Too many submissions, please wait 1 second before retrying.'
     }
 };
 /**

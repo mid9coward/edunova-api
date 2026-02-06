@@ -16,7 +16,7 @@ const codingConstraintsSchema = z
     timeLimit: z.number().min(0).default(2),
     memoryLimit: z.number().min(0).default(128)
   })
-  .default({})
+  .default(() => ({ timeLimit: 2, memoryLimit: 128 }))
 
 const codingExerciseBodySchema = z
   .object({

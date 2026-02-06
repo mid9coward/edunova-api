@@ -1,11 +1,37 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteQuizSchema = exports.getQuizByIdSchema = exports.getQuizzesQuerySchema = exports.updateQuizSchema = exports.createQuizSchema = exports.deleteArticleSchema = exports.getArticleByIdSchema = exports.getArticlesQuerySchema = exports.updateArticleSchema = exports.createArticleSchema = exports.bulkDeleteVideosSchema = exports.deleteVideoSchema = exports.getVideoByIdSchema = exports.getVideosQuerySchema = exports.updateVideoSchema = exports.createVideoSchema = exports.reorderLessonsSchema = exports.getCourseLessonsSchema = exports.getChapterLessonsSchema = exports.deleteLessonSchema = exports.getLessonByIdSchema = exports.getLessonsQuerySchema = exports.updateLessonSchema = exports.createLessonSchema = void 0;
+exports.deleteQuizSchema = exports.getQuizByIdSchema = exports.getQuizzesQuerySchema = exports.updateQuizSchema = exports.createQuizSchema = exports.deleteArticleSchema = exports.getArticleByIdSchema = exports.getArticlesQuerySchema = exports.updateArticleSchema = exports.createArticleSchema = exports.bulkDeleteVideosSchema = exports.deleteVideoSchema = exports.getVideoByIdSchema = exports.getVideosQuerySchema = exports.updateVideoSchema = exports.createVideoSchema = exports.submitCodeSchema = exports.runCodeSchema = exports.reorderLessonsSchema = exports.getCourseLessonsSchema = exports.getChapterLessonsSchema = exports.deleteLessonSchema = exports.getLessonByIdSchema = exports.getLessonsQuerySchema = exports.updateLessonSchema = exports.createLessonSchema = exports.createCodingExerciseSchema = void 0;
 const zod_1 = require("zod");
 const common_schema_1 = require("./common.schema");
 /**
  * Lesson and Resource Validation Schemas
  */
+const codingTestCaseSchema = zod_1.z.object({
+    input: zod_1.z.string(),
+    expectedOutput: zod_1.z.string(),
+    isHidden: zod_1.z.boolean().optional().default(false)
+});
+const codingConstraintsSchema = zod_1.z
+    .object({
+    timeLimit: zod_1.z.number().min(0).default(2),
+    memoryLimit: zod_1.z.number().min(0).default(128)
+})
+    .default(() => ({ timeLimit: 2, memoryLimit: 128 }));
+const codingExerciseBodySchema = zod_1.z
+    .object({
+    title: zod_1.z.string().min(1, 'Title is required').max(200, 'Title too long').trim(),
+    language: zod_1.z.string().min(1, 'Language is required').trim(),
+    version: zod_1.z.string().min(1, 'Version is required').trim(),
+    problemStatement: zod_1.z.string().min(1, 'Problem statement is required'),
+    starterCode: zod_1.z.string().min(1, 'Starter code is required'),
+    solutionCode: zod_1.z.string().min(1, 'Solution code is required'),
+    testCases: zod_1.z.array(codingTestCaseSchema).min(1, 'At least one test case is required'),
+    constraints: codingConstraintsSchema
+});
+// Create coding exercise schema
+exports.createCodingExerciseSchema = zod_1.z.object({
+    body: codingExerciseBodySchema
+});
 // Create lesson schema (supports both resource and resourceId)
 exports.createLessonSchema = zod_1.z.object({
     body: zod_1.z
@@ -13,7 +39,7 @@ exports.createLessonSchema = zod_1.z.object({
         title: zod_1.z.string().min(1, 'Title is required').max(200, 'Title too long').trim(),
         chapterId: common_schema_1.objectIdSchema,
         courseId: common_schema_1.objectIdSchema,
-        contentType: zod_1.z.enum(['video', 'quiz', 'article']),
+        contentType: zod_1.z.enum(['video', 'quiz', 'article', 'coding']),
         preview: zod_1.z.boolean().optional().default(false),
         isPublished: zod_1.z.boolean().optional().default(false),
         duration: zod_1.z.number().int().optional(),
@@ -21,9 +47,26 @@ exports.createLessonSchema = zod_1.z.object({
         resourceId: common_schema_1.objectIdSchema.optional(),
         resource: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional()
     })
-        .refine((data) => data.resourceId || data.resource, {
-        message: 'Either resourceId or resource must be provided',
-        path: ['resourceId']
+        .superRefine((data, ctx) => {
+        if (!data.resourceId && !data.resource) {
+            ctx.addIssue({
+                code: zod_1.z.ZodIssueCode.custom,
+                message: 'Either resourceId or resource must be provided',
+                path: ['resourceId']
+            });
+        }
+        if (data.contentType === 'coding' && data.resource) {
+            const parsed = codingExerciseBodySchema.safeParse(data.resource);
+            if (!parsed.success) {
+                parsed.error.issues.forEach((issue) => {
+                    ctx.addIssue({
+                        code: zod_1.z.ZodIssueCode.custom,
+                        message: issue.message,
+                        path: ['resource', ...issue.path]
+                    });
+                });
+            }
+        }
     })
 });
 // Update lesson schema (with optional resource data)
@@ -67,7 +110,7 @@ exports.getChapterLessonsSchema = zod_1.z.object({
         chapterId: common_schema_1.objectIdSchema
     }),
     query: common_schema_1.paginationSchema.extend({
-        contentType: zod_1.z.enum(['video', 'quiz', 'article']).optional(),
+        contentType: zod_1.z.enum(['video', 'quiz', 'article', 'coding']).optional(),
         isPublished: zod_1.z
             .enum(['true', 'false'])
             .transform((val) => val === 'true')
@@ -83,7 +126,7 @@ exports.getCourseLessonsSchema = zod_1.z.object({
     }),
     query: common_schema_1.paginationSchema.extend({
         chapterId: common_schema_1.objectIdSchema.optional(),
-        contentType: zod_1.z.enum(['video', 'quiz', 'article']).optional(),
+        contentType: zod_1.z.enum(['video', 'quiz', 'article', 'coding']).optional(),
         isPublished: zod_1.z
             .enum(['true', 'false'])
             .transform((val) => val === 'true')
@@ -101,6 +144,30 @@ exports.reorderLessonsSchema = zod_1.z.object({
             order: zod_1.z.number().min(0, 'Order must be non-negative')
         }))
             .min(1, 'At least one lesson is required')
+    })
+});
+/**
+ * Coding submission schemas
+ */
+exports.runCodeSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: common_schema_1.objectIdSchema
+    }),
+    body: zod_1.z.object({
+        sourceCode: zod_1.z.string().min(1, 'Source code is required'),
+        language: zod_1.z.string().min(1, 'Language is required'),
+        version: zod_1.z.string().min(1, 'Version is required'),
+        stdin: zod_1.z.string().optional()
+    })
+});
+exports.submitCodeSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: common_schema_1.objectIdSchema
+    }),
+    body: zod_1.z.object({
+        sourceCode: zod_1.z.string().min(1, 'Source code is required'),
+        language: zod_1.z.string().min(1, 'Language is required'),
+        version: zod_1.z.string().min(1, 'Version is required')
     })
 });
 /**

@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRelatedCoursesSchema = exports.bulkDeleteSchema = exports.updateCourseInfoSchema = exports.deleteCourseSchema = exports.getCourseBySlugSchema = exports.getCourseByIdSchema = exports.getCoursesSchema = exports.updateCourseSchema = exports.createCourseSchema = void 0;
+exports.getCourseCompletionSchema = exports.getRelatedCoursesSchema = exports.bulkDeleteSchema = exports.updateCourseInfoSchema = exports.deleteCourseSchema = exports.getCourseBySlugSchema = exports.getCourseByIdSchema = exports.getCoursesSchema = exports.updateCourseSchema = exports.createCourseSchema = void 0;
 const zod_1 = require("zod");
 const enums_1 = require("../enums");
+const common_schema_1 = require("./common.schema");
 /**
  * Course Validation Schemas
  */
@@ -161,5 +162,11 @@ exports.getRelatedCoursesSchema = zod_1.z.object({
     }),
     query: zod_1.z.object({
         limit: zod_1.z.string().regex(/^\d+$/, 'Limit must be a valid number').optional().default('5')
+    })
+});
+// Get course completion schema
+exports.getCourseCompletionSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        courseId: common_schema_1.objectIdSchema
     })
 });

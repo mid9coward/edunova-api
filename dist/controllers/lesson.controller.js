@@ -27,6 +27,32 @@ class LessonController {
         const { id } = req.params;
         const { includeQuestions } = req.query;
         const lesson = await services_1.LessonService.getLessonById(id, includeQuestions === 'true');
+        if (lesson.contentType === 'coding' && lesson.resource) {
+            const resource = lesson.resource;
+            const sanitizedResource = { ...resource };
+            delete sanitizedResource.solutionCode;
+            if (Array.isArray(resource.testCases)) {
+                sanitizedResource.testCases = resource.testCases.map((testCase) => {
+                    if (testCase?.isHidden) {
+                        const hidden = { isHidden: true };
+                        if (testCase._id !== undefined) {
+                            hidden._id = String(testCase._id);
+                        }
+                        return hidden;
+                    }
+                    const visible = {
+                        input: testCase.input,
+                        expectedOutput: testCase.expectedOutput,
+                        isHidden: testCase.isHidden
+                    };
+                    if (testCase._id !== undefined) {
+                        visible._id = String(testCase._id);
+                    }
+                    return visible;
+                });
+            }
+            lesson.resource = sanitizedResource;
+        }
         success_1.sendSuccess.ok(res, 'Lesson retrieved successfully', lesson);
     }
     /**

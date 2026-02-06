@@ -120,7 +120,7 @@ export const codingRunRateLimit = rateLimit({
     retryAfter: Math.ceil(config.CODING_RUN.windowMs / 1000)
   },
   ...RATE_LIMIT_HEADERS,
-  keyGenerator: (req) => req.user?.userId ?? req.ip,
+  keyGenerator: (req) => req.user?.userId ?? req.ip ?? 'anonymous',
   handler: createRateLimitHandler(config.CODING_RUN.message, Math.ceil(config.CODING_RUN.windowMs / 1000))
 })
 
@@ -133,7 +133,7 @@ export const codingSubmitRateLimit = rateLimit({
     retryAfter: Math.ceil(config.CODING_SUBMIT.windowMs / 1000)
   },
   ...RATE_LIMIT_HEADERS,
-  keyGenerator: (req) => req.user?.userId ?? req.ip,
+  keyGenerator: (req) => req.user?.userId ?? req.ip ?? 'anonymous',
   handler: createRateLimitHandler(config.CODING_SUBMIT.message, Math.ceil(config.CODING_SUBMIT.windowMs / 1000))
 })
 

@@ -76,6 +76,11 @@ class LessonService {
                         }
                         break;
                     }
+                    case 'coding': {
+                        const codingData = lessonData.resource;
+                        createdResources = await lesson_1.CodingExercise.create([codingData], { session, ordered: true });
+                        break;
+                    }
                     default:
                         throw new errors_1.ValidationError('Invalid content type', errors_1.ErrorCodes.INVALID_INPUT_FORMAT);
                 }
@@ -172,6 +177,10 @@ class LessonService {
                         ...(questions && { questions })
                     };
                 }
+                break;
+            }
+            case 'coding': {
+                resource = (await lesson_1.CodingExercise.findById(lessonData.resourceId).lean());
                 break;
             }
             default:
@@ -316,7 +325,7 @@ class LessonService {
         const lessons = await lesson_1.Lesson.find({ chapterId }).sort({ order: 1 });
         // Get resource data for each lesson (only description)
         const lessonsWithResources = await Promise.all(lessons.map(async (lesson) => {
-            const selectFields = ['description'];
+            const selectFields = lesson.contentType === 'coding' ? ['title', 'language', 'problemStatement', 'starterCode'] : ['description'];
             const resource = await this.getResourceByType(lesson.contentType, lesson.resourceId, selectFields);
             return {
                 ...lesson.toObject(),
@@ -344,6 +353,11 @@ class LessonService {
             }
             case 'quiz': {
                 const query = lesson_1.Quiz.findById(resourceId);
+                const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean();
+                return result;
+            }
+            case 'coding': {
+                const query = lesson_1.CodingExercise.findById(resourceId);
                 const result = selectQuery ? await query.select(selectQuery).lean() : await query.lean();
                 return result;
             }
@@ -388,6 +402,14 @@ class LessonService {
                 const updatedQuiz = await lesson_1.Quiz.findByIdAndUpdate(resourceId, finalUpdateData, { session, new: true });
                 return updatedQuiz;
             }
+            case 'coding': {
+                const codingData = resource;
+                const updatedCoding = await lesson_1.CodingExercise.findByIdAndUpdate(resourceId, codingData, {
+                    session,
+                    new: true
+                });
+                return updatedCoding;
+            }
             default:
                 throw new errors_1.ValidationError('Invalid content type', errors_1.ErrorCodes.INVALID_INPUT_FORMAT);
         }
@@ -417,6 +439,13 @@ class LessonService {
                 const deletedQuiz = await lesson_1.Quiz.findByIdAndDelete(resourceId, { session });
                 if (!deletedQuiz) {
                     throw new errors_1.NotFoundError('Quiz resource not found', errors_1.ErrorCodes.LESSON_NOT_FOUND);
+                }
+                break;
+            }
+            case 'coding': {
+                const deletedExercise = await lesson_1.CodingExercise.findByIdAndDelete(resourceId, { session });
+                if (!deletedExercise) {
+                    throw new errors_1.NotFoundError('Coding exercise resource not found', errors_1.ErrorCodes.LESSON_NOT_FOUND);
                 }
                 break;
             }

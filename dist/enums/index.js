@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CouponDiscountType = exports.BlogStatus = exports.Role = exports.Gender = exports.ReviewStatus = exports.LessonContentType = exports.PaymentMethod = exports.OrderStatus = exports.QuizResult = exports.QuizAttemptStatus = exports.CommentStatus = exports.CategoryStatus = exports.CourseType = exports.CourseStatus = exports.CourseLevel = exports.UserType = exports.UserStatus = void 0;
+exports.CouponDiscountType = exports.BlogStatus = exports.Role = exports.Gender = exports.ReviewStatus = exports.CodeSubmissionStatus = exports.LessonContentType = exports.PaymentMethod = exports.OrderStatus = exports.QuizResult = exports.QuizAttemptStatus = exports.CommentStatus = exports.CategoryStatus = exports.CourseType = exports.CourseStatus = exports.CourseLevel = exports.UserType = exports.UserStatus = void 0;
 var UserStatus;
 (function (UserStatus) {
     UserStatus["ACTIVE"] = "active";
@@ -66,7 +66,15 @@ var LessonContentType;
     LessonContentType["VIDEO"] = "video";
     LessonContentType["QUIZ"] = "quiz";
     LessonContentType["ARTICLE"] = "article";
+    LessonContentType["CODING"] = "coding";
 })(LessonContentType || (exports.LessonContentType = LessonContentType = {}));
+var CodeSubmissionStatus;
+(function (CodeSubmissionStatus) {
+    CodeSubmissionStatus["PENDING"] = "PENDING";
+    CodeSubmissionStatus["ACCEPTED"] = "ACCEPTED";
+    CodeSubmissionStatus["WRONG_ANSWER"] = "WRONG_ANSWER";
+    CodeSubmissionStatus["COMPILE_ERROR"] = "COMPILE_ERROR";
+})(CodeSubmissionStatus || (exports.CodeSubmissionStatus = CodeSubmissionStatus = {}));
 var ReviewStatus;
 (function (ReviewStatus) {
     ReviewStatus["ACTIVE"] = "active";

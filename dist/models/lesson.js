@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Quiz = exports.Article = exports.Video = exports.Lesson = void 0;
+exports.CodingExercise = exports.Quiz = exports.Article = exports.Video = exports.Lesson = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
 const enums_1 = require("../enums");
 /**
@@ -138,6 +138,81 @@ const quizSchema = new mongoose_1.Schema({
 }, {
     timestamps: true
 });
+/**
+ * Coding Exercise Resource Schema
+ */
+const codingTestCaseSchema = new mongoose_1.Schema({
+    input: {
+        type: String,
+        default: ''
+    },
+    expectedOutput: {
+        type: String,
+        required: true
+    },
+    isHidden: {
+        type: Boolean,
+        default: false
+    }
+}, {});
+const codingConstraintsSchema = new mongoose_1.Schema({
+    timeLimit: {
+        type: Number,
+        default: 2,
+        min: 0
+    },
+    memoryLimit: {
+        type: Number,
+        default: 128,
+        min: 0
+    }
+}, {
+    _id: false
+});
+const codingExerciseSchema = new mongoose_1.Schema({
+    title: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    language: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    version: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    problemStatement: {
+        type: String,
+        required: true
+    },
+    starterCode: {
+        type: String,
+        required: true
+    },
+    solutionCode: {
+        type: String,
+        required: true,
+        select: false
+    },
+    testCases: {
+        type: [codingTestCaseSchema],
+        required: true,
+        validate: {
+            validator: (value) => Array.isArray(value) && value.length > 0,
+            message: 'At least one test case is required'
+        }
+    },
+    constraints: {
+        type: codingConstraintsSchema,
+        default: () => ({})
+    }
+}, {
+    timestamps: true
+});
 // Lesson Indexes
 lessonSchema.index({ chapterId: 1, order: 1 });
 lessonSchema.index({ courseId: 1, order: 1 });
@@ -147,8 +222,10 @@ lessonSchema.index({ chapterId: 1, isPublished: 1 });
 videoSchema.index({ createdAt: -1 });
 articleSchema.index({ createdAt: -1 });
 quizSchema.index({ createdAt: -1 });
+codingExerciseSchema.index({ createdAt: -1 });
 // Model Exports
 exports.Lesson = mongoose_1.default.model('Lesson', lessonSchema);
 exports.Video = mongoose_1.default.model('Video', videoSchema);
 exports.Article = mongoose_1.default.model('Article', articleSchema);
 exports.Quiz = mongoose_1.default.model('Quiz', quizSchema);
+exports.CodingExercise = mongoose_1.default.model('CodingExercise', codingExerciseSchema);

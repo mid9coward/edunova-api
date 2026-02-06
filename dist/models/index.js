@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QuizAttempt = exports.Order = exports.Cart = exports.Blog = exports.Comment = exports.Review = exports.Coupon = exports.Track = exports.Lesson = exports.Chapter = exports.Category = exports.Role = exports.Course = exports.User = void 0;
+exports.CodeSubmission = exports.CourseCompletion = exports.QuizAttempt = exports.Order = exports.Cart = exports.Blog = exports.Comment = exports.Review = exports.Coupon = exports.Track = exports.CodingExercise = exports.Lesson = exports.Chapter = exports.Category = exports.Role = exports.Course = exports.User = void 0;
 // Models
 var user_1 = require("./user");
 Object.defineProperty(exports, "User", { enumerable: true, get: function () { return user_1.User; } });
@@ -28,6 +28,7 @@ var chapter_1 = require("./chapter");
 Object.defineProperty(exports, "Chapter", { enumerable: true, get: function () { return chapter_1.Chapter; } });
 var lesson_1 = require("./lesson");
 Object.defineProperty(exports, "Lesson", { enumerable: true, get: function () { return lesson_1.Lesson; } });
+Object.defineProperty(exports, "CodingExercise", { enumerable: true, get: function () { return lesson_1.CodingExercise; } });
 var track_1 = require("./track");
 Object.defineProperty(exports, "Track", { enumerable: true, get: function () { return track_1.Track; } });
 var coupon_1 = require("./coupon");
@@ -44,5 +45,9 @@ var order_1 = require("./order");
 Object.defineProperty(exports, "Order", { enumerable: true, get: function () { return order_1.Order; } });
 var quiz_attempt_1 = require("./quiz-attempt");
 Object.defineProperty(exports, "QuizAttempt", { enumerable: true, get: function () { return quiz_attempt_1.QuizAttempt; } });
+var course_completion_1 = require("./course-completion");
+Object.defineProperty(exports, "CourseCompletion", { enumerable: true, get: function () { return course_completion_1.CourseCompletion; } });
+var submission_1 = require("./submission");
+Object.defineProperty(exports, "CodeSubmission", { enumerable: true, get: function () { return submission_1.CodeSubmission; } });
 // Enums
 __exportStar(require("../enums"), exports);
