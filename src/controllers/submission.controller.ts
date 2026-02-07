@@ -23,9 +23,10 @@ export class SubmissionController {
     const { id } = req.params
     const payload: RunCodeInput = req.body
 
-    await SubmissionService.runCode(id as string, payload)
+    const result = await SubmissionService.runCode(id as string, payload)
+    const responsePayload = SubmissionService.toRunResponsePayload(result)
 
-    sendSuccess.ok(res, 'Code executed successfully', { status: 'OK' })
+    sendSuccess.ok(res, 'Code executed successfully', responsePayload)
   }
 
   /**

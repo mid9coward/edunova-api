@@ -39,11 +39,29 @@ type PistonExecuteResponse = {
   compile?: PistonRunResult
 }
 
+type CodingResultMode = 'strict' | 'leetcode'
+
 export type CodingRuntimeOption = {
   language: string
   versions: string[]
   aliases: string[]
 }
+
+export type RunCodeResponsePayload =
+  | {
+      status: 'OK'
+    }
+  | {
+      status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR'
+      language: string
+      version: string
+      runtimeMs: number
+      stdout: string
+      stderr: string
+      exitCode: number | null
+      signal: string | null
+      compileOutput?: string
+    }
 
 export class SubmissionService {
   private static runtimeCache: { runtimes: PistonRuntime[]; expiresAt: number } = {
@@ -211,6 +229,15 @@ export class SubmissionService {
     return value.trim().toLowerCase()
   }
 
+  private static getCodingResultMode(): CodingResultMode {
+    const mode = (process.env.CODING_RESULT_MODE || 'leetcode').trim().toLowerCase()
+    return mode === 'strict' ? 'strict' : 'leetcode'
+  }
+
+  private static isStrictMode(): boolean {
+    return this.getCodingResultMode() === 'strict'
+  }
+
   private static isRuntimeSupported(language: string, version: string, runtimes: PistonRuntime[]): boolean {
     const normalizedLanguage = this.normalizeLanguage(language)
 
@@ -355,6 +382,34 @@ export class SubmissionService {
     })
   }
 
+  static toRunResponsePayload(result: PistonExecuteResponse): RunCodeResponsePayload {
+    if (this.isStrictMode()) {
+      return { status: 'OK' }
+    }
+
+    const hasCompileError = this.isCompileError(result)
+    const runtimeMs = Math.round(this.parseExecutionTime(result.run) * 1000)
+    const exitCode = result.run?.code ?? null
+
+    let status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR' = 'SUCCESS'
+    if (hasCompileError) status = 'COMPILE_ERROR'
+    else if (typeof exitCode === 'number' && exitCode !== 0) status = 'RUNTIME_ERROR'
+
+    return {
+      status,
+      language: result.language || '',
+      version: result.version || '',
+      runtimeMs,
+      stdout: this.normalizeOutput(this.getStdout(result)),
+      stderr: this.normalizeOutput(this.getStderr(result)),
+      exitCode: typeof exitCode === 'number' ? exitCode : null,
+      signal: (result.run?.signal as string | null | undefined) ?? null,
+      ...(hasCompileError && {
+        compileOutput: this.getCompileError(result) || 'Compilation failed'
+      })
+    }
+  }
+
   /**
    * Submit code for grading (stateful)
    */
@@ -443,9 +498,9 @@ export class SubmissionService {
     const executionTime = totalExecutionTime
     const runtimeMs = Math.round(maxExecutionTime * 1000)
 
-    const failedVisibleTest =
+    const failedTest =
       status === CodeSubmissionStatus.WRONG_ANSWER
-        ? perTestResults.find((entry) => !entry.passed && !entry.isHidden)
+        ? perTestResults.find((entry) => !entry.passed && (!this.isStrictMode() || !entry.isHidden))
         : undefined
 
     const compileError =
@@ -484,15 +539,21 @@ export class SubmissionService {
         passedTestCases,
         totalTestCases,
         runtimeMs,
-      memoryKb: null as number | null,
-      ...(compileError && { compileError }),
-      ...(failedVisibleTest && {
-        failedTest: {
-          index: failedVisibleTest.index,
-          input: failedVisibleTest.input,
-            expected: failedVisibleTest.expected,
-            actual: failedVisibleTest.actual
+        memoryKb: null as number | null,
+        ...(compileError && { compileError }),
+        ...(failedTest && {
+          failedTest: {
+            index: failedTest.index,
+            input: failedTest.input,
+            expected: failedTest.expected,
+            actual: failedTest.actual,
+            ...(this.isStrictMode() ? {} : { isHidden: failedTest.isHidden })
           }
+        }),
+        ...(!this.isStrictMode() && {
+          stdout: stdout || '',
+          stderr: stderr || '',
+          resultMode: this.getCodingResultMode()
         })
       }
     }

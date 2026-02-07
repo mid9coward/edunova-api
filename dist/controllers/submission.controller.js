@@ -21,8 +21,9 @@ class SubmissionController {
     static async run(req, res) {
         const { id } = req.params;
         const payload = req.body;
-        await submission_service_1.SubmissionService.runCode(id, payload);
-        success_1.sendSuccess.ok(res, 'Code executed successfully', { status: 'OK' });
+        const result = await submission_service_1.SubmissionService.runCode(id, payload);
+        const responsePayload = submission_service_1.SubmissionService.toRunResponsePayload(result);
+        success_1.sendSuccess.ok(res, 'Code executed successfully', responsePayload);
     }
     /**
      * Submit code for grading (stateful)

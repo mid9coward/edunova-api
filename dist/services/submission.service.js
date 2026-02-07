@@ -143,6 +143,13 @@ class SubmissionService {
     static normalizeLanguage(value) {
         return value.trim().toLowerCase();
     }
+    static getCodingResultMode() {
+        const mode = (process.env.CODING_RESULT_MODE || 'leetcode').trim().toLowerCase();
+        return mode === 'strict' ? 'strict' : 'leetcode';
+    }
+    static isStrictMode() {
+        return this.getCodingResultMode() === 'strict';
+    }
     static isRuntimeSupported(language, version, runtimes) {
         const normalizedLanguage = this.normalizeLanguage(language);
         const matchesLanguage = (runtime) => {
@@ -271,6 +278,32 @@ class SubmissionService {
             stdin: payload.stdin ?? ''
         });
     }
+    static toRunResponsePayload(result) {
+        if (this.isStrictMode()) {
+            return { status: 'OK' };
+        }
+        const hasCompileError = this.isCompileError(result);
+        const runtimeMs = Math.round(this.parseExecutionTime(result.run) * 1000);
+        const exitCode = result.run?.code ?? null;
+        let status = 'SUCCESS';
+        if (hasCompileError)
+            status = 'COMPILE_ERROR';
+        else if (typeof exitCode === 'number' && exitCode !== 0)
+            status = 'RUNTIME_ERROR';
+        return {
+            status,
+            language: result.language || '',
+            version: result.version || '',
+            runtimeMs,
+            stdout: this.normalizeOutput(this.getStdout(result)),
+            stderr: this.normalizeOutput(this.getStderr(result)),
+            exitCode: typeof exitCode === 'number' ? exitCode : null,
+            signal: result.run?.signal ?? null,
+            ...(hasCompileError && {
+                compileOutput: this.getCompileError(result) || 'Compilation failed'
+            })
+        };
+    }
     /**
      * Submit code for grading (stateful)
      */
@@ -342,8 +375,8 @@ class SubmissionService {
         const maxExecutionTime = executionTimes.length > 0 ? Math.max(...executionTimes) : 0;
         const executionTime = totalExecutionTime;
         const runtimeMs = Math.round(maxExecutionTime * 1000);
-        const failedVisibleTest = status === enums_1.CodeSubmissionStatus.WRONG_ANSWER
-            ? perTestResults.find((entry) => !entry.passed && !entry.isHidden)
+        const failedTest = status === enums_1.CodeSubmissionStatus.WRONG_ANSWER
+            ? perTestResults.find((entry) => !entry.passed && (!this.isStrictMode() || !entry.isHidden))
             : undefined;
         const compileError = status === enums_1.CodeSubmissionStatus.COMPILE_ERROR
             ? this.getCompileError(results.find((result) => this.isCompileError(result)) ?? {}) || 'Compilation failed'
@@ -375,13 +408,19 @@ class SubmissionService {
                 runtimeMs,
                 memoryKb: null,
                 ...(compileError && { compileError }),
-                ...(failedVisibleTest && {
+                ...(failedTest && {
                     failedTest: {
-                        index: failedVisibleTest.index,
-                        input: failedVisibleTest.input,
-                        expected: failedVisibleTest.expected,
-                        actual: failedVisibleTest.actual
+                        index: failedTest.index,
+                        input: failedTest.input,
+                        expected: failedTest.expected,
+                        actual: failedTest.actual,
+                        ...(this.isStrictMode() ? {} : { isHidden: failedTest.isHidden })
                     }
+                }),
+                ...(!this.isStrictMode() && {
+                    stdout: stdout || '',
+                    stderr: stderr || '',
+                    resultMode: this.getCodingResultMode()
                 })
             }
         };
