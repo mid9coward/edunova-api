@@ -218,6 +218,37 @@ class SubmissionService {
         }
         return 0;
     }
+    static parseMemoryKb(run) {
+        if (!run)
+            return null;
+        const memoryBytesCandidate = run.memory_bytes;
+        if (typeof memoryBytesCandidate === 'number' && Number.isFinite(memoryBytesCandidate)) {
+            return Math.max(0, Math.round(memoryBytesCandidate / 1024));
+        }
+        if (typeof memoryBytesCandidate === 'string') {
+            const parsed = Number.parseFloat(memoryBytesCandidate);
+            if (!Number.isNaN(parsed)) {
+                return Math.max(0, Math.round(parsed / 1024));
+            }
+        }
+        const genericMemoryCandidate = run.memory;
+        if (typeof genericMemoryCandidate === 'number' && Number.isFinite(genericMemoryCandidate)) {
+            if (genericMemoryCandidate > 1024 * 1024) {
+                return Math.max(0, Math.round(genericMemoryCandidate / 1024));
+            }
+            return Math.max(0, Math.round(genericMemoryCandidate));
+        }
+        if (typeof genericMemoryCandidate === 'string') {
+            const parsed = Number.parseFloat(genericMemoryCandidate);
+            if (!Number.isNaN(parsed)) {
+                if (parsed > 1024 * 1024) {
+                    return Math.max(0, Math.round(parsed / 1024));
+                }
+                return Math.max(0, Math.round(parsed));
+            }
+        }
+        return null;
+    }
     static isCompileError(result) {
         const compile = result.compile;
         if (!compile)
@@ -245,6 +276,42 @@ class SubmissionService {
         const compile = result.compile;
         return this.normalizeOutput(compile?.stderr ?? compile?.output);
     }
+    static resolveExecutionConstraints(exercise) {
+        const timeLimitSecondsRaw = exercise.constraints?.timeLimit;
+        const memoryLimitMbRaw = exercise.constraints?.memoryLimit;
+        const timeLimitSeconds = typeof timeLimitSecondsRaw === 'number' && Number.isFinite(timeLimitSecondsRaw) && timeLimitSecondsRaw > 0
+            ? timeLimitSecondsRaw
+            : 2;
+        const memoryLimitMb = typeof memoryLimitMbRaw === 'number' && Number.isFinite(memoryLimitMbRaw) && memoryLimitMbRaw > 0
+            ? memoryLimitMbRaw
+            : 128;
+        const timeLimitMs = Math.max(1, Math.round(timeLimitSeconds * 1000));
+        const memoryLimitKb = Math.max(1, Math.round(memoryLimitMb * 1024));
+        const memoryLimitBytes = memoryLimitKb * 1024;
+        return {
+            timeLimitMs,
+            memoryLimitKb,
+            memoryLimitBytes
+        };
+    }
+    static buildExecutionPayload(payload, constraints) {
+        const compileTimeoutMs = Math.max(constraints.timeLimitMs * 3, 10000);
+        return {
+            language: payload.language,
+            version: payload.version,
+            files: [
+                {
+                    name: 'main',
+                    content: payload.sourceCode
+                }
+            ],
+            stdin: payload.stdin ?? '',
+            run_timeout: constraints.timeLimitMs,
+            compile_timeout: compileTimeoutMs,
+            run_memory_limit: constraints.memoryLimitBytes,
+            compile_memory_limit: constraints.memoryLimitBytes
+        };
+    }
     static async getCodingExerciseByLesson(lessonId) {
         const lesson = await lesson_1.Lesson.findById(lessonId);
         if (!lesson)
@@ -266,24 +333,17 @@ class SubmissionService {
             throw new errors_1.ValidationError('Language does not match this exercise', errors_1.ErrorCodes.INVALID_INPUT_FORMAT);
         }
         await this.ensureRuntimeSupported(payload.language, payload.version);
-        return await this.execute({
-            language: payload.language,
-            version: payload.version,
-            files: [
-                {
-                    name: 'main',
-                    content: payload.sourceCode
-                }
-            ],
-            stdin: payload.stdin ?? ''
-        });
+        const constraints = this.resolveExecutionConstraints(exercise);
+        const result = await this.execute(this.buildExecutionPayload(payload, constraints));
+        return { result, constraints };
     }
-    static toRunResponsePayload(result) {
+    static toRunResponsePayload(result, constraints) {
         if (this.isStrictMode()) {
             return { status: 'OK' };
         }
         const hasCompileError = this.isCompileError(result);
         const runtimeMs = Math.round(this.parseExecutionTime(result.run) * 1000);
+        const memoryKb = this.parseMemoryKb(result.run);
         const exitCode = result.run?.code ?? null;
         let status = 'SUCCESS';
         if (hasCompileError)
@@ -295,6 +355,9 @@ class SubmissionService {
             language: result.language || '',
             version: result.version || '',
             runtimeMs,
+            timeLimitMs: constraints.timeLimitMs,
+            memoryKb,
+            memoryLimitKb: constraints.memoryLimitKb,
             stdout: this.normalizeOutput(this.getStdout(result)),
             stderr: this.normalizeOutput(this.getStderr(result)),
             exitCode: typeof exitCode === 'number' ? exitCode : null,
@@ -318,6 +381,7 @@ class SubmissionService {
             throw new errors_1.ValidationError('No test cases configured', errors_1.ErrorCodes.INVALID_INPUT_FORMAT);
         }
         await this.ensureRuntimeSupported(payload.language, payload.version);
+        const constraints = this.resolveExecutionConstraints(exercise);
         const results = [];
         const submitDelayMs = this.getSubmitDelayMs();
         for (let index = 0; index < testCases.length; index++) {
@@ -325,17 +389,12 @@ class SubmissionService {
                 await this.sleep(submitDelayMs);
             }
             const testCase = testCases[index];
-            const result = await this.execute({
+            const result = await this.execute(this.buildExecutionPayload({
+                sourceCode: payload.sourceCode,
                 language: payload.language,
                 version: payload.version,
-                files: [
-                    {
-                        name: 'main',
-                        content: payload.sourceCode
-                    }
-                ],
                 stdin: testCase.input ?? ''
-            });
+            }, constraints));
             results.push(result);
             if (this.isCompileError(result)) {
                 break;
@@ -371,8 +430,12 @@ class SubmissionService {
             .join('\n')
             .trim();
         const executionTimes = results.map((result) => this.parseExecutionTime(result.run));
+        const memoryUsagesKb = results
+            .map((result) => this.parseMemoryKb(result.run))
+            .filter((value) => typeof value === 'number' && Number.isFinite(value));
         const totalExecutionTime = executionTimes.reduce((sum, value) => sum + value, 0);
         const maxExecutionTime = executionTimes.length > 0 ? Math.max(...executionTimes) : 0;
+        const maxMemoryKb = memoryUsagesKb.length > 0 ? Math.max(...memoryUsagesKb) : null;
         const executionTime = totalExecutionTime;
         const runtimeMs = Math.round(maxExecutionTime * 1000);
         const failedTest = status === enums_1.CodeSubmissionStatus.WRONG_ANSWER
@@ -406,7 +469,9 @@ class SubmissionService {
                 passedTestCases,
                 totalTestCases,
                 runtimeMs,
-                memoryKb: null,
+                timeLimitMs: constraints.timeLimitMs,
+                memoryKb: maxMemoryKb,
+                memoryLimitKb: constraints.memoryLimitKb,
                 ...(compileError && { compileError }),
                 ...(failedTest && {
                     failedTest: {

@@ -20,6 +20,10 @@ type PistonExecuteRequest = {
     content: string
   }>
   stdin?: string
+  compile_timeout?: number
+  run_timeout?: number
+  compile_memory_limit?: number
+  run_memory_limit?: number
 }
 
 type PistonRunResult = {
@@ -41,6 +45,12 @@ type PistonExecuteResponse = {
 
 type CodingResultMode = 'strict' | 'leetcode'
 
+type ExecutionConstraints = {
+  timeLimitMs: number
+  memoryLimitKb: number
+  memoryLimitBytes: number
+}
+
 export type CodingRuntimeOption = {
   language: string
   versions: string[]
@@ -56,6 +66,9 @@ export type RunCodeResponsePayload =
       language: string
       version: string
       runtimeMs: number
+      timeLimitMs: number
+      memoryKb: number | null
+      memoryLimitKb: number
       stdout: string
       stderr: string
       exitCode: number | null
@@ -311,6 +324,40 @@ export class SubmissionService {
     return 0
   }
 
+  private static parseMemoryKb(run?: PistonRunResult): number | null {
+    if (!run) return null
+
+    const memoryBytesCandidate = (run as { memory_bytes?: unknown }).memory_bytes
+    if (typeof memoryBytesCandidate === 'number' && Number.isFinite(memoryBytesCandidate)) {
+      return Math.max(0, Math.round(memoryBytesCandidate / 1024))
+    }
+    if (typeof memoryBytesCandidate === 'string') {
+      const parsed = Number.parseFloat(memoryBytesCandidate)
+      if (!Number.isNaN(parsed)) {
+        return Math.max(0, Math.round(parsed / 1024))
+      }
+    }
+
+    const genericMemoryCandidate = (run as { memory?: unknown }).memory
+    if (typeof genericMemoryCandidate === 'number' && Number.isFinite(genericMemoryCandidate)) {
+      if (genericMemoryCandidate > 1024 * 1024) {
+        return Math.max(0, Math.round(genericMemoryCandidate / 1024))
+      }
+      return Math.max(0, Math.round(genericMemoryCandidate))
+    }
+    if (typeof genericMemoryCandidate === 'string') {
+      const parsed = Number.parseFloat(genericMemoryCandidate)
+      if (!Number.isNaN(parsed)) {
+        if (parsed > 1024 * 1024) {
+          return Math.max(0, Math.round(parsed / 1024))
+        }
+        return Math.max(0, Math.round(parsed))
+      }
+    }
+
+    return null
+  }
+
   private static isCompileError(result: PistonExecuteResponse): boolean {
     const compile = result.compile
     if (!compile) return false
@@ -339,6 +386,53 @@ export class SubmissionService {
     return this.normalizeOutput(compile?.stderr ?? compile?.output)
   }
 
+  private static resolveExecutionConstraints(exercise: { constraints?: { timeLimit?: number; memoryLimit?: number } }): ExecutionConstraints {
+    const timeLimitSecondsRaw = exercise.constraints?.timeLimit
+    const memoryLimitMbRaw = exercise.constraints?.memoryLimit
+
+    const timeLimitSeconds =
+      typeof timeLimitSecondsRaw === 'number' && Number.isFinite(timeLimitSecondsRaw) && timeLimitSecondsRaw > 0
+        ? timeLimitSecondsRaw
+        : 2
+    const memoryLimitMb =
+      typeof memoryLimitMbRaw === 'number' && Number.isFinite(memoryLimitMbRaw) && memoryLimitMbRaw > 0
+        ? memoryLimitMbRaw
+        : 128
+
+    const timeLimitMs = Math.max(1, Math.round(timeLimitSeconds * 1000))
+    const memoryLimitKb = Math.max(1, Math.round(memoryLimitMb * 1024))
+    const memoryLimitBytes = memoryLimitKb * 1024
+
+    return {
+      timeLimitMs,
+      memoryLimitKb,
+      memoryLimitBytes
+    }
+  }
+
+  private static buildExecutionPayload(
+    payload: { sourceCode: string; language: string; version: string; stdin?: string },
+    constraints: ExecutionConstraints
+  ): PistonExecuteRequest {
+    const compileTimeoutMs = Math.max(constraints.timeLimitMs * 3, 10000)
+
+    return {
+      language: payload.language,
+      version: payload.version,
+      files: [
+        {
+          name: 'main',
+          content: payload.sourceCode
+        }
+      ],
+      stdin: payload.stdin ?? '',
+      run_timeout: constraints.timeLimitMs,
+      compile_timeout: compileTimeoutMs,
+      run_memory_limit: constraints.memoryLimitBytes,
+      compile_memory_limit: constraints.memoryLimitBytes
+    }
+  }
+
   private static async getCodingExerciseByLesson(lessonId: string) {
     const lesson = await Lesson.findById(lessonId)
     if (!lesson) throw new NotFoundError('Lesson not found', ErrorCodes.LESSON_NOT_FOUND)
@@ -357,7 +451,7 @@ export class SubmissionService {
   static async runCode(
     lessonId: string,
     payload: { sourceCode: string; language: string; version: string; stdin?: string }
-  ): Promise<PistonExecuteResponse> {
+  ): Promise<{ result: PistonExecuteResponse; constraints: ExecutionConstraints }> {
     const { exercise } = await this.getCodingExerciseByLesson(lessonId)
 
     if (
@@ -369,26 +463,20 @@ export class SubmissionService {
 
     await this.ensureRuntimeSupported(payload.language, payload.version)
 
-    return await this.execute({
-      language: payload.language,
-      version: payload.version,
-      files: [
-        {
-          name: 'main',
-          content: payload.sourceCode
-        }
-      ],
-      stdin: payload.stdin ?? ''
-    })
+    const constraints = this.resolveExecutionConstraints(exercise)
+    const result = await this.execute(this.buildExecutionPayload(payload, constraints))
+
+    return { result, constraints }
   }
 
-  static toRunResponsePayload(result: PistonExecuteResponse): RunCodeResponsePayload {
+  static toRunResponsePayload(result: PistonExecuteResponse, constraints: ExecutionConstraints): RunCodeResponsePayload {
     if (this.isStrictMode()) {
       return { status: 'OK' }
     }
 
     const hasCompileError = this.isCompileError(result)
     const runtimeMs = Math.round(this.parseExecutionTime(result.run) * 1000)
+    const memoryKb = this.parseMemoryKb(result.run)
     const exitCode = result.run?.code ?? null
 
     let status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR' = 'SUCCESS'
@@ -400,6 +488,9 @@ export class SubmissionService {
       language: result.language || '',
       version: result.version || '',
       runtimeMs,
+      timeLimitMs: constraints.timeLimitMs,
+      memoryKb,
+      memoryLimitKb: constraints.memoryLimitKb,
       stdout: this.normalizeOutput(this.getStdout(result)),
       stderr: this.normalizeOutput(this.getStderr(result)),
       exitCode: typeof exitCode === 'number' ? exitCode : null,
@@ -433,6 +524,7 @@ export class SubmissionService {
     }
 
     await this.ensureRuntimeSupported(payload.language, payload.version)
+    const constraints = this.resolveExecutionConstraints(exercise)
 
     const results: PistonExecuteResponse[] = []
 
@@ -444,17 +536,17 @@ export class SubmissionService {
       }
 
       const testCase = testCases[index]
-      const result = await this.execute({
-        language: payload.language,
-        version: payload.version,
-        files: [
+      const result = await this.execute(
+        this.buildExecutionPayload(
           {
-            name: 'main',
-            content: payload.sourceCode
-          }
-        ],
-        stdin: testCase.input ?? ''
-      })
+            sourceCode: payload.sourceCode,
+            language: payload.language,
+            version: payload.version,
+            stdin: testCase.input ?? ''
+          },
+          constraints
+        )
+      )
       results.push(result)
 
       if (this.isCompileError(result)) {
@@ -493,8 +585,12 @@ export class SubmissionService {
       .join('\n')
       .trim()
     const executionTimes = results.map((result) => this.parseExecutionTime(result.run))
+    const memoryUsagesKb = results
+      .map((result) => this.parseMemoryKb(result.run))
+      .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
     const totalExecutionTime = executionTimes.reduce((sum, value) => sum + value, 0)
     const maxExecutionTime = executionTimes.length > 0 ? Math.max(...executionTimes) : 0
+    const maxMemoryKb = memoryUsagesKb.length > 0 ? Math.max(...memoryUsagesKb) : null
     const executionTime = totalExecutionTime
     const runtimeMs = Math.round(maxExecutionTime * 1000)
 
@@ -539,7 +635,9 @@ export class SubmissionService {
         passedTestCases,
         totalTestCases,
         runtimeMs,
-        memoryKb: null as number | null,
+        timeLimitMs: constraints.timeLimitMs,
+        memoryKb: maxMemoryKb as number | null,
+        memoryLimitKb: constraints.memoryLimitKb,
         ...(compileError && { compileError }),
         ...(failedTest && {
           failedTest: {

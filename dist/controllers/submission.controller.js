@@ -21,8 +21,8 @@ class SubmissionController {
     static async run(req, res) {
         const { id } = req.params;
         const payload = req.body;
-        const result = await submission_service_1.SubmissionService.runCode(id, payload);
-        const responsePayload = submission_service_1.SubmissionService.toRunResponsePayload(result);
+        const { result, constraints } = await submission_service_1.SubmissionService.runCode(id, payload);
+        const responsePayload = submission_service_1.SubmissionService.toRunResponsePayload(result, constraints);
         success_1.sendSuccess.ok(res, 'Code executed successfully', responsePayload);
     }
     /**
