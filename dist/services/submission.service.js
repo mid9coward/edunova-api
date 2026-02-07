@@ -178,6 +178,12 @@ class SubmissionService {
             return null;
         return Math.max(64, parsed);
     }
+    static getManagedRuntimeLearningMemoryMb() {
+        const parsed = Number.parseInt(process.env.CODING_ENGINE_MANAGED_MEMORY_LEARNING_MB || '768', 10);
+        if (Number.isNaN(parsed))
+            return 768;
+        return Math.max(256, parsed);
+    }
     static isRuntimeSupported(language, version, runtimes) {
         const normalizedLanguage = this.normalizeLanguage(language);
         const matchesLanguage = (runtime) => {
@@ -356,14 +362,20 @@ class SubmissionService {
         if (!this.isManagedRuntimeLanguage(language)) {
             return configuredLimitBytes;
         }
-        if (this.getExecutionProfile() === 'learning') {
-            // Learning mode: prioritize stability for JVM/.NET so students are not blocked by sandbox crashes.
-            return -1;
-        }
-        const multiplier = this.getManagedRuntimeMemoryMultiplier();
         const minBytes = this.getManagedRuntimeMemoryMinMb() * 1024 * 1024;
         const maxMb = this.getManagedRuntimeMemoryMaxMb();
         const maxBytes = maxMb ? maxMb * 1024 * 1024 : null;
+        if (this.getExecutionProfile() === 'learning') {
+            // Learning mode: prioritize stability for JVM/.NET using explicit larger memory
+            // instead of relying on platform defaults.
+            const learningBytes = this.getManagedRuntimeLearningMemoryMb() * 1024 * 1024;
+            let engineLimitBytes = Math.max(learningBytes, minBytes);
+            if (maxBytes !== null) {
+                engineLimitBytes = Math.min(engineLimitBytes, maxBytes);
+            }
+            return engineLimitBytes;
+        }
+        const multiplier = this.getManagedRuntimeMemoryMultiplier();
         const scaledBytes = Math.round(configuredLimitBytes * multiplier);
         let engineLimitBytes = Math.max(configuredLimitBytes, scaledBytes, minBytes);
         if (maxBytes !== null) {

@@ -281,6 +281,12 @@ export class SubmissionService {
     return Math.max(64, parsed)
   }
 
+  private static getManagedRuntimeLearningMemoryMb(): number {
+    const parsed = Number.parseInt(process.env.CODING_ENGINE_MANAGED_MEMORY_LEARNING_MB || '768', 10)
+    if (Number.isNaN(parsed)) return 768
+    return Math.max(256, parsed)
+  }
+
   private static isRuntimeSupported(language: string, version: string, runtimes: PistonRuntime[]): boolean {
     const normalizedLanguage = this.normalizeLanguage(language)
 
@@ -483,15 +489,22 @@ export class SubmissionService {
       return configuredLimitBytes
     }
 
-    if (this.getExecutionProfile() === 'learning') {
-      // Learning mode: prioritize stability for JVM/.NET so students are not blocked by sandbox crashes.
-      return -1
-    }
-
-    const multiplier = this.getManagedRuntimeMemoryMultiplier()
     const minBytes = this.getManagedRuntimeMemoryMinMb() * 1024 * 1024
     const maxMb = this.getManagedRuntimeMemoryMaxMb()
     const maxBytes = maxMb ? maxMb * 1024 * 1024 : null
+
+    if (this.getExecutionProfile() === 'learning') {
+      // Learning mode: prioritize stability for JVM/.NET using explicit larger memory
+      // instead of relying on platform defaults.
+      const learningBytes = this.getManagedRuntimeLearningMemoryMb() * 1024 * 1024
+      let engineLimitBytes = Math.max(learningBytes, minBytes)
+      if (maxBytes !== null) {
+        engineLimitBytes = Math.min(engineLimitBytes, maxBytes)
+      }
+      return engineLimitBytes
+    }
+
+    const multiplier = this.getManagedRuntimeMemoryMultiplier()
 
     const scaledBytes = Math.round(configuredLimitBytes * multiplier)
     let engineLimitBytes = Math.max(configuredLimitBytes, scaledBytes, minBytes)
