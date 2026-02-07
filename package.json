@@ -17,7 +17,8 @@
     "seed:courses": "npx ts-node scripts/seed-courses.ts",
     "seed:admin": "npx ts-node scripts/create-admin-user.ts",
     "seed:all": "npx ts-node scripts/seed-all.ts",
-    "seed:reset": "npx ts-node scripts/seed-all.ts"
+    "seed:reset": "npx ts-node scripts/seed-all.ts",
+    "provision:dsa:vn": "npx ts-node scripts/provision-dsa-vn.ts"
   },
   "keywords": [],
   "author": "",
