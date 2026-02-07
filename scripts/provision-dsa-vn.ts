@@ -10,6 +10,7 @@ type Course = { _id: string; slug: string; title: string }
 type Chapter = { _id: string; title: string }
 type Lesson = { _id: string; title: string; contentType: 'video' | 'article' | 'quiz' | 'coding' }
 type Category = { _id: string; slug: string; name: string; status: string }
+type LessonSlot = 'article-1' | 'article-2' | 'video' | 'coding-1' | 'coding-2' | 'coding-3'
 
 const API_URL = process.env.PROVISION_API_URL || 'https://edunova-api.vercel.app/api/v1'
 const TOKEN = process.env.PROVISION_API_TOKEN || ''
@@ -22,6 +23,7 @@ const CODING_VERSION = (process.env.PROVISION_DSA_VERSION || '').trim()
 const MAX_RETRIES = Number.parseInt(process.env.PROVISION_DSA_RETRY_ATTEMPTS || '10', 10)
 const RETRY_BASE_MS = Number.parseInt(process.env.PROVISION_DSA_RETRY_BASE_MS || '1000', 10)
 const MIN_REQUEST_INTERVAL_MS = Number.parseInt(process.env.PROVISION_DSA_MIN_REQUEST_INTERVAL_MS || '250', 10)
+const PRUNE_DUPLICATES = process.env.PROVISION_DSA_PRUNE_DUPLICATES === 'true'
 
 const NEED = ['category:create', 'course:create', 'chapter:create', 'lesson:create']
 const CAT = { name: 'Data Structures and Algorithms', slug: 'data-structures-and-algorithms', status: 'active' }
@@ -435,6 +437,14 @@ const arr = <T>(v: unknown, keys: string[]) =>
     : (keys.map((k) => (v as Record<string, unknown>)?.[k]).find(Array.isArray) as T[]) || []
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const norm = (s: string) => s.trim().toLowerCase()
+const getLessonSlot = (title: string): LessonSlot | null => {
+  if (title.startsWith('Bài đọc 1:')) return 'article-1'
+  if (title.startsWith('Bài đọc 2:')) return 'article-2'
+  if (title.startsWith('Video:')) return 'video'
+  const codeMatch = /^Bài tập code\s+([1-3]):/i.exec(title)
+  if (!codeMatch) return null
+  return `coding-${codeMatch[1]}` as LessonSlot
+}
 
 class Api {
   private c: AxiosInstance
@@ -555,6 +565,9 @@ class Api {
   }
   updateLesson = async (id: string, x: Record<string, unknown>) => {
     await this.r('PUT', `/lessons/${id}`, x)
+  }
+  deleteLesson = async (id: string) => {
+    await this.r('DELETE', `/lessons/${id}`)
   }
   runtimes = async () => u(await this.r<Envelope<Runtime[]>>('GET', '/lessons/coding/runtimes'))
   publicChapters = async (courseId: string) =>
@@ -686,7 +699,7 @@ const validateProvisionConfig = () => {
 }
 
 async function main() {
-  console.log(`Provision DSA VN -> ${API_URL} (dry=${DRY}, update=${UPDATE})`)
+  console.log(`Provision DSA VN -> ${API_URL} (dry=${DRY}, update=${UPDATE}, prune=${PRUNE_DUPLICATES})`)
   if (!TOKEN) throw new Error('Missing PROVISION_API_TOKEN')
   validateProvisionConfig()
   const api = new Api(API_URL, TOKEN)
@@ -727,7 +740,9 @@ async function main() {
     chapterSkipped: 0,
     lessonCreated: 0,
     lessonUpdated: 0,
-    lessonSkipped: 0
+    lessonSkipped: 0,
+    duplicateLessonSlotsDetected: 0,
+    lessonPruned: 0
   }
 
   for (const c of COURSES) {
@@ -800,9 +815,53 @@ async function main() {
       }
 
       const lessonsEx = DRY ? [] : await api.lessonsByChapter(chapter._id)
+      const slotCounts = new Map<LessonSlot, number>()
+      for (const lesson of lessonsEx) {
+        const slot = getLessonSlot(lesson.title)
+        if (!slot) continue
+        slotCounts.set(slot, (slotCounts.get(slot) || 0) + 1)
+      }
+      for (const [slot, count] of slotCounts.entries()) {
+        if (count > 1) {
+          stat.duplicateLessonSlotsDetected += count - 1
+          console.warn(`  Duplicate lesson slot detected in "${chapterName}" (${slot}) -> ${count} lessons`)
+        }
+      }
+      let lessonsCurrent = [...lessonsEx]
+      if (PRUNE_DUPLICATES && lessonsEx.length > 0) {
+        const groupedBySlot = new Map<LessonSlot, Lesson[]>()
+        for (const lesson of lessonsEx) {
+          const slot = getLessonSlot(lesson.title)
+          if (!slot) continue
+          const group = groupedBySlot.get(slot)
+          if (group) group.push(lesson)
+          else groupedBySlot.set(slot, [lesson])
+        }
+
+        for (const [slot, group] of groupedBySlot.entries()) {
+          if (group.length <= 1) continue
+          const keep = group[0]
+          const duplicates = group.slice(1)
+
+          for (const duplicate of duplicates) {
+            if (DRY) {
+              console.log(`    DRY prune duplicate lesson (${slot}): ${duplicate.title}`)
+              continue
+            }
+            await api.deleteLesson(duplicate._id)
+            stat.lessonPruned++
+            lessonsCurrent = lessonsCurrent.filter((x) => x._id !== duplicate._id)
+            console.log(`    Pruned duplicate lesson (${slot}): ${duplicate.title}`)
+            await sleep(DELAY)
+          }
+
+          console.log(`    Keep lesson (${slot}): ${keep.title}`)
+        }
+      }
       const [p1, p2, p3] = pickProblems(c.slug, i)
       const plan: Array<Record<string, unknown>> = [
         {
+          slot: 'article-1',
           title: `Bài đọc 1: ${chapterName} - Kiến thức cốt lõi`,
           contentType: 'article',
           preview: i === 0,
@@ -811,6 +870,7 @@ async function main() {
           resource: { description: article(c.slug, c.title, chapterName, 1) }
         },
         {
+          slot: 'article-2',
           title: `Bài đọc 2: ${chapterName} - Mẫu tư duy`,
           contentType: 'article',
           preview: false,
@@ -819,6 +879,7 @@ async function main() {
           resource: { description: article(c.slug, c.title, chapterName, 2) }
         },
         {
+          slot: 'video',
           title: `Video: ${chapterName}`,
           contentType: 'video',
           preview: false,
@@ -829,6 +890,7 @@ async function main() {
         ...[p1, p2, p3].map((p, idx) => {
           const codingCode = resolveCodingCode(p, runtime.language)
           return {
+            slot: `coding-${idx + 1}`,
             title: `Bài tập code ${idx + 1}: ${p.title}`,
             contentType: 'coding',
             preview: false,
@@ -854,7 +916,12 @@ async function main() {
       for (const x of plan) {
         const title = String(x.title)
         const type = x.contentType as Lesson['contentType']
-        const ex = lessonsEx.find((l) => l.title === title)
+        const slot = (x.slot as LessonSlot | undefined) || null
+        const exByTitle = lessonsCurrent.find((l) => l.title === title)
+        const exBySlot = !exByTitle && slot
+          ? lessonsCurrent.find((l) => l.contentType === type && getLessonSlot(l.title) === slot)
+          : undefined
+        const ex = exByTitle || exBySlot
         if (!ex) {
           if (DRY) console.log(`    DRY create lesson: ${title}`)
           else {
