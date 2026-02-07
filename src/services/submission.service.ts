@@ -44,6 +44,7 @@ type PistonExecuteResponse = {
 }
 
 type CodingResultMode = 'strict' | 'leetcode'
+type CodingExecutionProfile = 'learning' | 'judge'
 
 type ExecutionConstraints = {
   timeLimitMs: number
@@ -62,7 +63,7 @@ export type RunCodeResponsePayload =
       status: 'OK'
     }
   | {
-      status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR'
+      status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR' | 'TIME_LIMIT_EXCEEDED'
       language: string
       version: string
       runtimeMs: number
@@ -251,6 +252,35 @@ export class SubmissionService {
     return this.getCodingResultMode() === 'strict'
   }
 
+  private static getExecutionProfile(): CodingExecutionProfile {
+    const mode = (process.env.CODING_EXECUTION_PROFILE || 'learning').trim().toLowerCase()
+    return mode === 'judge' ? 'judge' : 'learning'
+  }
+
+  private static isJudgeProfile(): boolean {
+    return this.getExecutionProfile() === 'judge'
+  }
+
+  private static getManagedRuntimeMemoryMultiplier(): number {
+    const parsed = Number.parseFloat(process.env.CODING_ENGINE_MANAGED_MEMORY_MULTIPLIER || '2')
+    if (Number.isNaN(parsed)) return 2
+    return Math.max(1, parsed)
+  }
+
+  private static getManagedRuntimeMemoryMinMb(): number {
+    const parsed = Number.parseInt(process.env.CODING_ENGINE_MANAGED_MEMORY_MIN_MB || '256', 10)
+    if (Number.isNaN(parsed)) return 256
+    return Math.max(64, parsed)
+  }
+
+  private static getManagedRuntimeMemoryMaxMb(): number | null {
+    const raw = process.env.CODING_ENGINE_MANAGED_MEMORY_MAX_MB
+    if (!raw) return 1024
+    const parsed = Number.parseInt(raw, 10)
+    if (Number.isNaN(parsed) || parsed <= 0) return null
+    return Math.max(64, parsed)
+  }
+
   private static isRuntimeSupported(language: string, version: string, runtimes: PistonRuntime[]): boolean {
     const normalizedLanguage = this.normalizeLanguage(language)
 
@@ -415,6 +445,7 @@ export class SubmissionService {
     constraints: ExecutionConstraints
   ): PistonExecuteRequest {
     const compileTimeoutMs = Math.max(constraints.timeLimitMs * 3, 10000)
+    const engineMemoryLimit = this.resolveEngineMemoryLimitBytes(payload.language, constraints.memoryLimitBytes)
 
     return {
       language: payload.language,
@@ -428,9 +459,47 @@ export class SubmissionService {
       stdin: payload.stdin ?? '',
       run_timeout: constraints.timeLimitMs,
       compile_timeout: compileTimeoutMs,
-      run_memory_limit: constraints.memoryLimitBytes,
-      compile_memory_limit: constraints.memoryLimitBytes
+      run_memory_limit: engineMemoryLimit,
+      compile_memory_limit: engineMemoryLimit
     }
+  }
+
+  private static isManagedRuntimeLanguage(language: string): boolean {
+    const normalized = this.normalizeLanguage(language)
+    return (
+      normalized === 'java' ||
+      normalized === 'kotlin' ||
+      normalized === 'scala' ||
+      normalized === 'csharp' ||
+      normalized === 'csharp.net' ||
+      normalized === 'fsharp.net' ||
+      normalized === 'fsi' ||
+      normalized === 'basic.net'
+    )
+  }
+
+  private static resolveEngineMemoryLimitBytes(language: string, configuredLimitBytes: number): number {
+    if (!this.isManagedRuntimeLanguage(language)) {
+      return configuredLimitBytes
+    }
+
+    if (this.getExecutionProfile() === 'learning') {
+      // Learning mode: prioritize stability for JVM/.NET so students are not blocked by sandbox crashes.
+      return -1
+    }
+
+    const multiplier = this.getManagedRuntimeMemoryMultiplier()
+    const minBytes = this.getManagedRuntimeMemoryMinMb() * 1024 * 1024
+    const maxMb = this.getManagedRuntimeMemoryMaxMb()
+    const maxBytes = maxMb ? maxMb * 1024 * 1024 : null
+
+    const scaledBytes = Math.round(configuredLimitBytes * multiplier)
+    let engineLimitBytes = Math.max(configuredLimitBytes, scaledBytes, minBytes)
+    if (maxBytes !== null) {
+      engineLimitBytes = Math.min(engineLimitBytes, maxBytes)
+    }
+
+    return engineLimitBytes
   }
 
   private static async getCodingExerciseByLesson(lessonId: string) {
@@ -478,9 +547,11 @@ export class SubmissionService {
     const runtimeMs = Math.round(this.parseExecutionTime(result.run) * 1000)
     const memoryKb = this.parseMemoryKb(result.run)
     const exitCode = result.run?.code ?? null
+    const hasTimeLimitExceeded = this.isJudgeProfile() && runtimeMs > constraints.timeLimitMs
 
-    let status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR' = 'SUCCESS'
+    let status: 'SUCCESS' | 'RUNTIME_ERROR' | 'COMPILE_ERROR' | 'TIME_LIMIT_EXCEEDED' = 'SUCCESS'
     if (hasCompileError) status = 'COMPILE_ERROR'
+    else if (hasTimeLimitExceeded) status = 'TIME_LIMIT_EXCEEDED'
     else if (typeof exitCode === 'number' && exitCode !== 0) status = 'RUNTIME_ERROR'
 
     return {
@@ -593,6 +664,12 @@ export class SubmissionService {
     const maxMemoryKb = memoryUsagesKb.length > 0 ? Math.max(...memoryUsagesKb) : null
     const executionTime = totalExecutionTime
     const runtimeMs = Math.round(maxExecutionTime * 1000)
+    const hasTimeLimitExceeded =
+      this.isJudgeProfile() && executionTimes.some((value) => Math.round(value * 1000) > constraints.timeLimitMs)
+
+    if (!hasCompileError && hasTimeLimitExceeded) {
+      status = CodeSubmissionStatus.TIME_LIMIT_EXCEEDED
+    }
 
     const failedTest =
       status === CodeSubmissionStatus.WRONG_ANSWER

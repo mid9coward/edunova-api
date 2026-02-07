@@ -74,6 +74,7 @@ var CodeSubmissionStatus;
     CodeSubmissionStatus["ACCEPTED"] = "ACCEPTED";
     CodeSubmissionStatus["WRONG_ANSWER"] = "WRONG_ANSWER";
     CodeSubmissionStatus["COMPILE_ERROR"] = "COMPILE_ERROR";
+    CodeSubmissionStatus["TIME_LIMIT_EXCEEDED"] = "TIME_LIMIT_EXCEEDED";
 })(CodeSubmissionStatus || (exports.CodeSubmissionStatus = CodeSubmissionStatus = {}));
 var ReviewStatus;
 (function (ReviewStatus) {
