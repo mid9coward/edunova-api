@@ -281,12 +281,6 @@ export class SubmissionService {
     return Math.max(64, parsed)
   }
 
-  private static getManagedRuntimeLearningMemoryMb(): number {
-    const parsed = Number.parseInt(process.env.CODING_ENGINE_MANAGED_MEMORY_LEARNING_MB || '768', 10)
-    if (Number.isNaN(parsed)) return 768
-    return Math.max(256, parsed)
-  }
-
   private static isRuntimeSupported(language: string, version: string, runtimes: PistonRuntime[]): boolean {
     const normalizedLanguage = this.normalizeLanguage(language)
 
@@ -494,14 +488,10 @@ export class SubmissionService {
     const maxBytes = maxMb ? maxMb * 1024 * 1024 : null
 
     if (this.getExecutionProfile() === 'learning') {
-      // Learning mode: prioritize stability for JVM/.NET using explicit larger memory
-      // instead of relying on platform defaults.
-      const learningBytes = this.getManagedRuntimeLearningMemoryMb() * 1024 * 1024
-      let engineLimitBytes = Math.max(learningBytes, minBytes)
-      if (maxBytes !== null) {
-        engineLimitBytes = Math.min(engineLimitBytes, maxBytes)
-      }
-      return engineLimitBytes
+      // Public Piston workers often fail JVM/.NET bootstrap when a positive
+      // cgroup memory limit is enforced; keep learning mode stable by using
+      // platform default memory policy.
+      return -1
     }
 
     const multiplier = this.getManagedRuntimeMemoryMultiplier()
